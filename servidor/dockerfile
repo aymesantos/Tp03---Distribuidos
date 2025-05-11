@@ -1,14 +1,15 @@
-# Usa uma imagem oficial do Python como base
-FROM python:3.10-slim
+# Use uma imagem base do Python
+FROM python:3.9-slim
 
-# Define o diretório de trabalho dentro do contêiner
+# Crie e defina o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copia os arquivos do projeto para dentro do contêiner
-COPY . .
+# Copie o restante dos arquivos do projeto para o container
+COPY . /app/
 
-# Expõe a porta usada pelo servidor (ajuste se necessário)
+# Exponha a porta que o servidor vai usar
 EXPOSE 5000
 
 # Comando para rodar o servidor
-CMD ["python", "servidor_mock.py"]
+CMD ["python", "servidor.py"]
+
