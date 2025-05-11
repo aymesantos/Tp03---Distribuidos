@@ -3,7 +3,7 @@ import json
 
 # Dados simulados de produtos e usuários
 usuarios = {
-    "teste@exemplo.com": {"senha": "senha123", "nome": "Test User", "casa": "Grifinória", "tipo_bruxo": "Bruxo"}
+    "ayme@gmail.com": {"senha": "senha123", "nome": "Ayme Faustino", "casa": "Grifinória", "tipo_bruxo": "Sangue-Puro"},
 }
 
 produtos_disponiveis = [

@@ -1,7 +1,10 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit,QListWidget,QStackedWidget, QPushButton,QHBoxLayout, QMessageBox, QComboBox
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QMenu, QLabel, QLineEdit,QListWidget,QStackedWidget, QPushButton,QHBoxLayout, QMessageBox, QComboBox
 from cliente import Cliente
 import re # Importando o módulo re para expressões regulares
+from PyQt6.QtGui import QPixmap, QPalette, QBrush
+from PyQt6.QtCore import Qt
+
 
 class JanelaLogin(QWidget):
     def __init__(self):
@@ -12,27 +15,63 @@ class JanelaLogin(QWidget):
 
     def initUI(self):
         self.setWindowTitle('BecoDiagonal - Login')
-        
-        layout = QVBoxLayout()
-        
+        self.setFixedSize(1366, 768)
+
+        # Fundo com imagem usando QLabel
+        self.background = QLabel(self)
+        self.background.setPixmap(QPixmap("imagens/login.png"))
+        self.background.setGeometry(0, 0, 1366, 768)
+
+        # Campo de email
         self.email_input = QLineEdit(self)
         self.email_input.setPlaceholderText('Email')
-        layout.addWidget(self.email_input)
-        
+        self.email_input.setGeometry(850, 220, 422, 63)
+        self.email_input.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0);
+            border: none;
+            color: white;
+            font-size: 25px;
+        """)
+
+        # Campo de senha
         self.senha_input = QLineEdit(self)
-        self.senha_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.senha_input.setPlaceholderText('Senha')
-        layout.addWidget(self.senha_input)
-        
-        self.login_btn = QPushButton('Entrar', self)
+        self.senha_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.senha_input.setGeometry(850, 333, 422, 63)
+        self.senha_input.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0);
+            border: none;
+            color: white;
+            font-size: 25px;
+        """)
+
+        # Botão de login
+        self.login_btn = QPushButton('', self)  # Sem texto, para combinar com a imagem
+        self.login_btn.setGeometry(834, 446, 184, 63)
+        self.login_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0);
+                border: none;
+            }
+            QPushButton:hover {
+                cursor: pointer;
+            }
+        """)
         self.login_btn.clicked.connect(self.realizar_login)
-        layout.addWidget(self.login_btn)
-        
-        self.cadastro_btn = QPushButton('Criar conta', self)
+
+        # Botão de cadastro
+        self.cadastro_btn = QPushButton('', self)
+        self.cadastro_btn.setGeometry(1072, 446, 184, 63)
+        self.cadastro_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0);
+                border: none;
+            }
+            QPushButton:hover {
+                cursor: pointer;
+            }
+        """)
         self.cadastro_btn.clicked.connect(self.ir_para_cadastro)
-        layout.addWidget(self.cadastro_btn)
-        
-        self.setLayout(layout)
         self.show()
 
     def realizar_login(self):
@@ -59,60 +98,141 @@ class JanelaLogin(QWidget):
 
     def ir_para_cadastro(self):
         self.close()
-        self.janela_cadastro = JanelaCadastro()
+        self.janela_cadastro = JanelaCadastro(self.cliente)
         self.janela_cadastro.show()
 
 #### Tela de Cadastro
-
 class JanelaCadastro(QWidget):
-    def __init__(self):
+    def __init__(self, cliente):
         super().__init__()
+        self.cliente = cliente
         self.initUI()
-        self.cliente = Cliente()
 
     def initUI(self):
         self.setWindowTitle('BecoDiagonal - Cadastro')
-        
-        layout = QVBoxLayout()
-        
+        self.setFixedSize(1366, 768)
+
+        # Imagem de fundo
+        self.background = QLabel(self)
+        self.background.setPixmap(QPixmap("imagens/cadastro.png"))
+        self.background.setGeometry(0, 0, 1366, 768)
+
+        # Campo nome
         self.nome_input = QLineEdit(self)
-        self.nome_input.setPlaceholderText('Nome')
-        layout.addWidget(self.nome_input)
-        
-        self.casa_input = QComboBox(self)
-        self.casa_input.addItems(["Grifinória", "Sonserina", "Lufa-Lufa", "Corvinal"])
-        layout.addWidget(self.casa_input)
-        
+        self.nome_input.setPlaceholderText("Nome completo")
+        self.nome_input.setGeometry(860, 94, 422, 63)  
+        self.nome_input.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0);
+            border: none;
+            color: white;
+            font-size: 22px;
+        """)
+
+        # Botão de seleção de casa
+        self.casa_input = QPushButton("Selecionar casa", self)
+        self.casa_input.setGeometry(860, 199, 422, 63)
+        self.casa_input.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0);
+                border: none;
+                color: white;
+                font-size: 22px;
+                text-align: left;
+                padding-left: 10px;
+            }
+        """)
+
+        # Menu com as opções
+        self.casa_menu = QMenu(self)
+        for casa in ["Grifinória", "Sonserina", "Corvinal", "Lufa-Lufa"]:
+            action = self.casa_menu.addAction(casa)
+            action.triggered.connect(lambda checked, casa=casa: self.casa_input.setText(casa))
+
+        self.casa_input.setMenu(self.casa_menu)
+
+
+        # Campo email
         self.email_input = QLineEdit(self)
-        self.email_input.setPlaceholderText('Email')
-        layout.addWidget(self.email_input)
-        
+        self.email_input.setPlaceholderText("Email")
+        self.email_input.setGeometry(860, 304, 422, 63)  
+        self.email_input.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0);
+            border: none;
+            color: white;
+            font-size: 22px;
+        """)
+
+        # Campo senha
         self.senha_input = QLineEdit(self)
+        self.senha_input.setPlaceholderText("Senha")
         self.senha_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.senha_input.setPlaceholderText('Senha')
-        layout.addWidget(self.senha_input)
-        
-        self.tipo_bruxo_input = QComboBox(self)
-        self.tipo_bruxo_input.addItems(["Nascido Trouxa", "Bruxo", "Aborto"])
-        layout.addWidget(self.tipo_bruxo_input)
-        
-        self.cadastro_btn = QPushButton('Criar Conta', self)
-        self.cadastro_btn.clicked.connect(self.realizar_cadastro)
-        layout.addWidget(self.cadastro_btn)
-        
-        self.setLayout(layout)
+        self.senha_input.setGeometry(860, 409, 422, 63)  
+        self.senha_input.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0);
+            border: none;
+            color: white;
+            font-size: 22px;
+        """)
+
+        # Botão de seleção de tipo de bruxo
+        self.tipo_bruxo_input = QPushButton("Selecionar tipo de bruxo", self)
+        self.tipo_bruxo_input.setGeometry(860, 514, 422, 63)
+        self.tipo_bruxo_input.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0);
+                border: none;
+                color: white;
+                font-size: 22px;
+                text-align: left;
+                padding-left: 10px;
+            }
+        """)
+
+        # Menu com as opções
+        self.tipo_bruxo_menu = QMenu(self)
+        for tipo in ["Sangue-puro", "Nascido-trouxa", "Aborto"]:
+            action = self.tipo_bruxo_menu.addAction(tipo)
+            action.triggered.connect(lambda checked, tipo=tipo: self.tipo_bruxo_input.setText(tipo))
+
+        self.tipo_bruxo_input.setMenu(self.tipo_bruxo_menu)
+
+
+        # Botão de cadastro
+        self.cadastrar_btn = QPushButton('', self)
+        self.cadastrar_btn.setGeometry(960, 619, 184, 63)  
+        self.cadastrar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0);
+                border: none;
+            }
+            QPushButton:hover {
+                cursor: pointer;
+            }
+        """)
+        self.cadastrar_btn.clicked.connect(self.realizar_cadastro)
+
         self.show()
+
+    def voltar_login(self):
+        self.close()
+        self.janela_login = JanelaLogin()
+        self.janela_login.show()
+
 
     def realizar_cadastro(self):
         nome = self.nome_input.text().strip()
-        casa = self.casa_input.currentText() 
+        casa = self.casa_input.text().strip() 
         email = self.email_input.text().strip()
         senha = self.senha_input.text()
-        tipo_bruxo = self.tipo_bruxo_input.currentText()
+        tipo_bruxo = self.tipo_bruxo_input.text().strip()
 
-        # Verificações locais (cliente)
-        if not all([nome, casa, email, senha, tipo_bruxo]):
+        # Verificações locais
+        if not all([nome, email, senha]):
             QMessageBox.warning(self, 'Erro', 'Preencha todos os campos!')
+            return
+        
+        if casa == "Selecionar casa" or tipo_bruxo == "Selecionar tipo de bruxo":
+            QMessageBox.warning(self, 'Erro', 'Selecione uma casa e o tipo de bruxo.')
             return
 
         if not re.match(r'^[A-Za-z0-9 ]{4,20}$', nome):
@@ -127,10 +247,8 @@ class JanelaCadastro(QWidget):
             QMessageBox.warning(self, 'Erro', 'Email inválido.')
             return
 
-        # Envia dados para o servidor
         resposta = self.cliente.cadastro(nome, casa, email, senha, tipo_bruxo)
 
-        # Trata resposta do servidor
         if resposta:
             if resposta.get('status') == 'sucesso':
                 QMessageBox.information(self, 'Sucesso', 'Cadastro realizado com sucesso!')
@@ -143,6 +261,7 @@ class JanelaCadastro(QWidget):
                 QMessageBox.warning(self, 'Erro', 'Erro no cadastro, tente novamente!')
         else:
             QMessageBox.warning(self, 'Erro', 'Erro de conexão com o servidor.')
+
             
 class JanelaMarketplace(QWidget):
     def __init__(self):
