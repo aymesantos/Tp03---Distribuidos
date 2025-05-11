@@ -1,43 +1,39 @@
 import socket
 import json
 
-class ClienteSocket:
-    def __init__(self, host='localhost', port=12345):
+class Cliente:
+    def __init__(self, host='localhost', porta=5000):
         self.host = host
-        self.port = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.conectar()
-
-    def conectar(self):
+        self.porta = porta
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((self.host, self.porta))
+        
+    def enviar_mensagem(self, mensagem):
         try:
-            self.sock.connect((self.host, self.port))
-            print("Conectado ao servidor!")
+            # Serializa a mensagem para JSON
+            mensagem_json = json.dumps(mensagem)
+            # Envia a mensagem como bytes
+            self.socket.sendall(mensagem_json.encode('utf-8'))
         except Exception as e:
-            print(f"Erro ao conectar ao servidor: {e}")
-
-    def enviar(self, dados):
+            print(f"Erro ao enviar mensagem: {e}")
+        
+    def receber_mensagem(self):
         try:
-            dados_json = json.dumps(dados)
-            self.sock.sendall(f"{len(dados_json):<10}".encode())
-            self.sock.sendall(dados_json.encode())
-            print(f"Dados enviados: {dados}")
-            return self.receber()
+            # Recebe a resposta do servidor
+            resposta = self.socket.recv(1024)
+            # Desserializa a resposta recebida de JSON para dicionário Python
+            return json.loads(resposta.decode('utf-8'))
         except Exception as e:
-            print(f"Erro ao enviar dados: {e}")
-            return {'status': 'erro', 'mensagem': str(e)}
+            print(f"Erro ao receber mensagem: {e}")
+            return None
+        
+    def login(self, email, senha):
+        mensagem = {'acao': 'login', 'email': email, 'senha': senha}
+        self.enviar_mensagem(mensagem)
+        return self.receber_mensagem()
 
-    def receber(self):
-        try:
-            tamanho = int(self.sock.recv(10).decode())
-            dados = self.sock.recv(tamanho).decode()
-            dados_json = json.loads(dados)
-            print(f"Dados recebidos: {dados_json}")
-            return dados_json
-        except Exception as e:
-            print(f"Erro ao receber dados: {e}")
-            return {'status': 'erro', 'mensagem': str(e)}
-
-    def fechar(self):
-        self.sock.close()
-        print("Conexão encerrada com o servidor.")
+    def cadastro(self, nome, casa, email, senha, tipo_bruxo):
+        mensagem = {'acao': 'cadastro', 'nome': nome, 'casa': casa, 'email': email, 'senha': senha, 'tipo_bruxo': tipo_bruxo}
+        self.enviar_mensagem(mensagem)
+        return self.receber_mensagem()
 
