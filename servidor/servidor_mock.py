@@ -7,9 +7,9 @@ usuarios = {
 }
 
 produtos_disponiveis = [
-    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00},
-    {"id": 2, "nome": "Poção de Cura", "preco": 50.00},
-    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00}
+    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Feitiçaria"},
+    {"id": 2, "nome": "Poção de Cura", "preco": 50.00, "categoria": "Poções"},
+    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Feitiçaria"}
 ]
 
 # Carrinho de compras (armazena produtos comprados por usuário)
@@ -46,8 +46,16 @@ def processar_mensagem(mensagem):
         return {'status': 'sucesso'}
 
     elif acao == 'visualizar_loja':
-        # Simula a visualização da loja
-        return {'status': 'sucesso', 'produtos': produtos_disponiveis}
+        # Obtém a categoria do parâmetro, se fornecido
+        categoria = mensagem.get('categoria')
+        
+        if categoria:
+            # Filtra os produtos pela categoria, se fornecida
+            produtos_filtrados = [p for p in produtos_disponiveis if p['categoria'].lower() == categoria.lower()]
+            return {'status': 'sucesso', 'produtos': produtos_filtrados}
+        else:
+            # Caso não haja filtro de categoria, retorna todos os produtos
+            return {'status': 'sucesso', 'produtos': produtos_disponiveis}
     
     elif acao == 'adicionar_produto_carrinho':
         email = mensagem.get('email')
@@ -107,6 +115,3 @@ def iniciar_servidor(host='localhost', porta=5000):
 
 if __name__ == '__main__':
     iniciar_servidor()
-
-
-

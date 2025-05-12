@@ -1,4 +1,4 @@
-import socket
+""" import socket
 import json
 
 class Cliente:
@@ -35,5 +35,427 @@ class Cliente:
     def cadastro(self, nome, casa, email, senha, tipo_bruxo):
         mensagem = {'acao': 'cadastro', 'nome': nome, 'casa': casa, 'email': email, 'senha': senha, 'tipo_bruxo': tipo_bruxo}
         self.enviar_mensagem(mensagem)
-        return self.receber_mensagem()
+        return self.receber_mensagem() """
 
+import socket
+import json
+import threading
+import base64
+from io import BytesIO
+from PIL import Image
+
+class Cliente:
+    def __init__(self, host='localhost', porta=5000):
+        self.host = host
+        self.porta = porta
+        self.conectado = False
+        self.socket = None
+        self.usuario_logado = None
+        self.token = None
+        # Lock para sincronização de threads
+        self.socket_lock = threading.Lock()
+        self.conectar()
+    
+    def conectar(self):
+        """Estabelece conexão com o servidor"""
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((self.host, self.porta))
+            self.conectado = True
+            return True
+        except Exception as e:
+            print(f"Erro ao conectar ao servidor: {e}")
+            self.conectado = False
+            return False
+    
+    def __enviar_com_timeout(self, mensagem, timeout=5):
+        """Envia mensagem com timeout para evitar travamentos"""
+        try:
+            self.socket.settimeout(timeout)
+            # Serializa a mensagem para JSON
+            mensagem_json = json.dumps(mensagem)
+            # Adiciona o token se existir e não for uma operação de login/cadastro
+            if self.token and mensagem.get('acao') not in ['login', 'cadastro']:
+                mensagem_json_obj = json.loads(mensagem_json)
+                mensagem_json_obj['token'] = self.token
+                mensagem_json = json.dumps(mensagem_json_obj)
+            
+            # Envia a mensagem como bytes
+            self.socket.sendall(mensagem_json.encode('utf-8'))
+            return True
+        except Exception as e:
+            print(f"Erro ao enviar mensagem: {e}")
+            return False
+        
+    def __receber_com_timeout(self, timeout=5):
+        """Recebe resposta com timeout para evitar travamentos"""
+        try:
+            self.socket.settimeout(timeout)
+            # Recebe a resposta do servidor
+            resposta = self.socket.recv(4096)  # Aumentado para receber respostas maiores
+            # Desserializa a resposta recebida de JSON para dicionário Python
+            return json.loads(resposta.decode('utf-8'))
+        except socket.timeout:
+            print("Tempo de espera excedido ao receber resposta do servidor")
+            return {"status": "erro", "erro": "timeout"}
+        except Exception as e:
+            print(f"Erro ao receber mensagem: {e}")
+            return None
+    
+    def enviar_mensagem(self, mensagem):
+        """Envia mensagem ao servidor com tratamento para reconexão"""
+        with self.socket_lock:  # Garante exclusão mútua
+            if not self.conectado:
+                if not self.conectar():
+                    return {"status": "erro", "erro": "conexao_falhou"}
+            
+            if not self.__enviar_com_timeout(mensagem):
+                # Tenta reconectar uma vez
+                if self.conectar():
+                    if not self.__enviar_com_timeout(mensagem):
+                        return {"status": "erro", "erro": "envio_falhou"}
+                else:
+                    return {"status": "erro", "erro": "conexao_falhou"}
+            
+            return self.__receber_com_timeout()
+        
+    def executar_operacao(self, operacao, callback=None, **params):
+        """Executa operação em thread separada"""
+        def executar():
+            resultado = operacao(**params)
+            if callback:
+                callback(resultado)
+            return resultado
+        
+        thread = threading.Thread(target=executar)
+        thread.daemon = True
+        thread.start()
+        return thread
+    
+    # AUTENTICAÇÃO E CADASTRO
+    
+    def login(self, email, senha, callback=None):
+        """Realiza login do usuário"""
+        def operacao_login(email, senha):
+            mensagem = {'acao': 'login', 'email': email, 'senha': senha}
+            resposta = self.enviar_mensagem(mensagem)
+            
+            if resposta and resposta.get('status') == 'sucesso':
+                self.usuario_logado = resposta.get('usuario')
+                self.token = resposta.get('token')
+            
+            return resposta
+        
+        if callback:
+            return self.executar_operacao(operacao_login, callback, email=email, senha=senha)
+        else:
+            return operacao_login(email, senha)
+
+    def cadastro(self, nome, casa, email, senha, tipo_bruxo, callback=None):
+        """Cadastra um novo usuário"""
+        def operacao_cadastro(nome, casa, email, senha, tipo_bruxo):
+            mensagem = {
+                'acao': 'cadastro', 
+                'nome': nome, 
+                'casa': casa, 
+                'email': email, 
+                'senha': senha, 
+                'tipo_bruxo': tipo_bruxo
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_cadastro, callback, 
+                                        nome=nome, casa=casa, email=email, 
+                                        senha=senha, tipo_bruxo=tipo_bruxo)
+        else:
+            return operacao_cadastro(nome, casa, email, senha, tipo_bruxo)
+    
+    def logout(self):
+        """Realiza logout do usuário"""
+        self.usuario_logado = None
+        self.token = None
+        return {"status": "sucesso", "mensagem": "Logout realizado com sucesso"}
+    
+    # GERENCIAMENTO DE PERFIL
+    
+    def atualizar_foto_perfil(self, caminho_imagem, callback=None):
+        """Atualiza a foto de perfil do usuário (RF005)"""
+        def operacao_atualizar_foto(caminho_imagem):
+            try:
+                # Abre e codifica a imagem em base64
+                with open(caminho_imagem, "rb") as img_file:
+                    img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+                
+                mensagem = {
+                    'acao': 'atualizar_foto_perfil',
+                    'imagem_base64': img_base64
+                }
+                return self.enviar_mensagem(mensagem)
+            except Exception as e:
+                print(f"Erro ao processar imagem: {e}")
+                return {"status": "erro", "erro": "processamento_imagem"}
+        
+        if callback:
+            return self.executar_operacao(operacao_atualizar_foto, callback, caminho_imagem=caminho_imagem)
+        else:
+            return operacao_atualizar_foto(caminho_imagem)
+    
+    def redimensionar_imagem(self, caminho_imagem, max_size=(800, 800), formato="JPEG"):
+        """Redimensiona uma imagem para evitar envio de arquivos muito grandes"""
+        try:
+            img = Image.open(caminho_imagem)
+            img.thumbnail(max_size, Image.LANCZOS)
+            
+            # Salva em um buffer
+            buffer = BytesIO()
+            img.save(buffer, formato)
+            buffer.seek(0)
+            
+            return buffer.read()
+        except Exception as e:
+            print(f"Erro ao redimensionar imagem: {e}")
+            return None
+    
+    # GERENCIAMENTO DE LOJA
+    
+    def criar_loja(self, nome_loja, descricao, caminho_imagem=None, callback=None):
+        """Cria uma nova loja para o usuário (RF011)"""
+        def operacao_criar_loja(nome_loja, descricao, caminho_imagem):
+            imagem_base64 = None
+            if caminho_imagem:
+                try:
+                    # Redimensiona e codifica a imagem
+                    img_data = self.redimensionar_imagem(caminho_imagem)
+                    if img_data:
+                        imagem_base64 = base64.b64encode(img_data).decode('utf-8')
+                except Exception as e:
+                    print(f"Erro ao processar imagem da loja: {e}")
+            
+            mensagem = {
+                'acao': 'criar_loja',
+                'nome_loja': nome_loja,
+                'descricao': descricao,
+                'imagem_base64': imagem_base64
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_criar_loja, callback, 
+                                        nome_loja=nome_loja, descricao=descricao, 
+                                        caminho_imagem=caminho_imagem)
+        else:
+            return operacao_criar_loja(nome_loja, descricao, caminho_imagem)
+    
+    def editar_loja(self, nome_loja=None, descricao=None, caminho_imagem=None, callback=None):
+        """Edita informações da loja do usuário (RF012)"""
+        def operacao_editar_loja(nome_loja, descricao, caminho_imagem):
+            dados = {'acao': 'editar_loja'}
+            
+            if nome_loja:
+                dados['nome_loja'] = nome_loja
+            if descricao:
+                dados['descricao'] = descricao
+            
+            if caminho_imagem:
+                try:
+                    img_data = self.redimensionar_imagem(caminho_imagem)
+                    if img_data:
+                        dados['imagem_base64'] = base64.b64encode(img_data).decode('utf-8')
+                except Exception as e:
+                    print(f"Erro ao processar imagem da loja: {e}")
+            
+            return self.enviar_mensagem(dados)
+        
+        if callback:
+            return self.executar_operacao(operacao_editar_loja, callback,
+                                        nome_loja=nome_loja, descricao=descricao,
+                                        caminho_imagem=caminho_imagem)
+        else:
+            return operacao_editar_loja(nome_loja, descricao, caminho_imagem)
+    
+    def obter_loja(self, id_loja=None, callback=None):
+        """Obtém informações da loja (RF008)"""
+        def operacao_obter_loja(id_loja):
+            mensagem = {'acao': 'obter_loja'}
+            if id_loja:
+                mensagem['id_loja'] = id_loja
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_obter_loja, callback, id_loja=id_loja)
+        else:
+            return operacao_obter_loja(id_loja)
+    
+    # GERENCIAMENTO DE PRODUTOS
+    
+    def criar_produto(self, titulo, descricao, preco, categoria, caminhos_imagens=None, callback=None):
+        """Cria um novo anúncio de produto (RF013)"""
+        def operacao_criar_produto(titulo, descricao, preco, categoria, caminhos_imagens):
+            imagens_base64 = []
+            
+            if caminhos_imagens:
+                for caminho in caminhos_imagens:
+                    try:
+                        img_data = self.redimensionar_imagem(caminho)
+                        if img_data:
+                            imagens_base64.append(base64.b64encode(img_data).decode('utf-8'))
+                    except Exception as e:
+                        print(f"Erro ao processar imagem do produto: {e}")
+            
+            mensagem = {
+                'acao': 'criar_produto',
+                'titulo': titulo,
+                'descricao': descricao,
+                'preco': preco,
+                'categoria': categoria,
+                'imagens_base64': imagens_base64
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_criar_produto, callback,
+                                        titulo=titulo, descricao=descricao,
+                                        preco=preco, categoria=categoria,
+                                        caminhos_imagens=caminhos_imagens)
+        else:
+            return operacao_criar_produto(titulo, descricao, preco, categoria, caminhos_imagens)
+    
+    def atualizar_status_produto(self, id_produto, status, callback=None):
+        """Atualiza o status de um produto (RF014, RF017)"""
+        def operacao_atualizar_status(id_produto, status):
+            mensagem = {
+                'acao': 'atualizar_status_produto',
+                'id_produto': id_produto,
+                'status': status  # 'ativo', 'pausado', 'desativado', 'vendido'
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_atualizar_status, callback,
+                                        id_produto=id_produto, status=status)
+        else:
+            return operacao_atualizar_status(id_produto, status)
+    
+    def listar_produtos(self, filtros=None, callback=None):
+        """Lista produtos disponíveis para compra (RF015)"""
+        def operacao_listar_produtos(filtros):
+            mensagem = {'acao': 'listar_produtos'}
+            if filtros:
+                mensagem['filtros'] = filtros
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_listar_produtos, callback, filtros=filtros)
+        else:
+            return operacao_listar_produtos(filtros)
+    
+    def obter_detalhes_produto(self, id_produto, callback=None):
+        """Obtém detalhes de um produto específico (RF015)"""
+        def operacao_obter_produto(id_produto):
+            mensagem = {
+                'acao': 'obter_produto',
+                'id_produto': id_produto
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_obter_produto, callback, id_produto=id_produto)
+        else:
+            return operacao_obter_produto(id_produto)
+    
+    # GERENCIAMENTO DE CARRINHO
+    
+    def adicionar_ao_carrinho(self, id_produto, quantidade=1, callback=None):
+        """Adiciona um produto ao carrinho (RF016)"""
+        def operacao_adicionar_carrinho(id_produto, quantidade):
+            mensagem = {
+                'acao': 'adicionar_ao_carrinho',
+                'id_produto': id_produto,
+                'quantidade': quantidade
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_adicionar_carrinho, callback,
+                                        id_produto=id_produto, quantidade=quantidade)
+        else:
+            return operacao_adicionar_carrinho(id_produto, quantidade)
+    
+    def remover_do_carrinho(self, id_produto, callback=None):
+        """Remove um produto do carrinho"""
+        def operacao_remover_carrinho(id_produto):
+            mensagem = {
+                'acao': 'remover_do_carrinho',
+                'id_produto': id_produto
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_remover_carrinho, callback, id_produto=id_produto)
+        else:
+            return operacao_remover_carrinho(id_produto)
+    
+    def visualizar_carrinho(self, callback=None):
+        """Visualiza os itens no carrinho de compras"""
+        def operacao_visualizar_carrinho():
+            mensagem = {'acao': 'visualizar_carrinho'}
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_visualizar_carrinho, callback)
+        else:
+            return operacao_visualizar_carrinho()
+    
+    # PAGAMENTO E FINALIZAÇÃO DE COMPRA
+    
+    def finalizar_compra(self, metodo_pagamento, dados_pagamento, callback=None):
+        """Finaliza a compra dos itens no carrinho (RF016, RF019)"""
+        def operacao_finalizar_compra(metodo_pagamento, dados_pagamento):
+            mensagem = {
+                'acao': 'finalizar_compra',
+                'metodo_pagamento': metodo_pagamento,  # 'cartao', 'boleto', 'pix'
+                'dados_pagamento': dados_pagamento
+            }
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_finalizar_compra, callback,
+                                        metodo_pagamento=metodo_pagamento, 
+                                        dados_pagamento=dados_pagamento)
+        else:
+            return operacao_finalizar_compra(metodo_pagamento, dados_pagamento)
+    
+    # HISTÓRICO DE TRANSAÇÕES
+    
+    def historico_compras(self, callback=None):
+        """Obtém o histórico de compras do usuário (RF018)"""
+        def operacao_historico_compras():
+            mensagem = {'acao': 'historico_compras'}
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_historico_compras, callback)
+        else:
+            return operacao_historico_compras()
+    
+    def historico_vendas(self, callback=None):
+        """Obtém o histórico de vendas do usuário (RF018)"""
+        def operacao_historico_vendas():
+            mensagem = {'acao': 'historico_vendas'}
+            return self.enviar_mensagem(mensagem)
+        
+        if callback:
+            return self.executar_operacao(operacao_historico_vendas, callback)
+        else:
+            return operacao_historico_vendas()
+    
+    def encerrar(self):
+        """Encerra a conexão com o servidor"""
+        try:
+            with self.socket_lock:
+                if self.socket:
+                    self.socket.close()
+                self.conectado = False
+        except Exception as e:
+            print(f"Erro ao encerrar conexão: {e}")

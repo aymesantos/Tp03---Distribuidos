@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QMenu, QLabel, QLineEdit,QListWidget,QStackedWidget, QPushButton,QHBoxLayout, QMessageBox, QComboBox
 from cliente import Cliente
 import re # Importando o módulo re para expressões regulares
-from PyQt6.QtGui import QPixmap, QPalette, QBrush
+from PyQt6.QtGui import QPixmap, QPalette, QBrush,  QPainter
 from PyQt6.QtCore import Qt
 
 
@@ -268,10 +268,16 @@ class JanelaMarketplace(QWidget):
         super().__init__()
         self.initUI()
         self.cliente = Cliente()
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        pixmap = QPixmap("imagens/fundo.png")
+        painter.drawPixmap(self.rect(), pixmap)
 
     def initUI(self):
         self.setWindowTitle('BecoDiagonal - Marketplace')
         self.setGeometry(200, 200, 800, 600)  # Tamanho da janela inicial
+        self.setStyleSheet("background: transparent;")
         
         # Layout principal
         main_layout = QVBoxLayout()
@@ -385,7 +391,7 @@ class JanelaMarketplace(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    janela_login = JanelaLogin()  # A primeira tela que será aberta é o login
+    janela_login = JanelaMarketplace()  # A primeira tela que será aberta é o login
     sys.exit(app.exec())
 
 
