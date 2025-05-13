@@ -381,6 +381,8 @@ class JanelaPerfilUsuario(QDialog):
     def __init__(self, cliente):
         super().__init__()
         self.cliente = cliente
+        self.foto_label = QLabel(self)  
+        self.foto_label.setGeometry(50, 50, 100, 100) 
         self.initUI()
         
     def initUI(self):
@@ -411,16 +413,25 @@ class JanelaPerfilUsuario(QDialog):
         layout.addWidget(cancelar_btn)
         
         self.setLayout(layout)
-    
+
     def selecionar_foto(self):
-        options = QFileDialog.Options()
-        caminho, _ = QFileDialog.getOpenFileName(
-            self, "Selecionar Foto de Perfil", "", 
-            "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
+        options = QFileDialog.Option.DontUseNativeDialog  # ou combine com outras se quiser
+        arquivo, _ = QFileDialog.getOpenFileName(
+            self,
+            "Selecionar Foto de Perfil",
+            "",
+            "Imagens (*.png *.jpg *.jpeg)",
+            options=options
         )
-        
-        if caminho:
-            self.foto_perfil.atualizar_imagem(caminho)
+        if arquivo:
+            self.caminho_foto = arquivo
+            pixmap = QPixmap(arquivo)
+            self.foto_label.setPixmap(pixmap.scaled(100, 100))
+            if not pixmap.isNull():
+                self.foto_label.setPixmap(pixmap.scaled(100, 100))
+            else:
+                print("Erro: imagem não carregada corretamente.")
+
     
     def salvar_perfil(self):
         caminho = self.foto_perfil.caminho_imagem
@@ -696,6 +707,40 @@ class JanelaMarketplace(QWidget):
         self.setWindowTitle('BecoDiagonal - Marketplace')
         self.setFixedSize(1366, 768)
         
+        # Definir o estilo global para aplicação
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
+        
         # Layout principal
         main_layout = QVBoxLayout()
         
@@ -775,19 +820,19 @@ class JanelaMarketplace(QWidget):
                 widget.deleteLater()
         
         # Buscar produtos no servidor
-        resposta = self.cliente.listar_produtos(categoria=categoria, termo_busca=termo_busca)
-        
+        resposta = self.cliente.listar_produtos(filtros={'categoria': categoria, 'termo_busca': termo_busca})
+
         if resposta and resposta.get('status') == 'sucesso':
             produtos = resposta.get('produtos', [])
             
             if not produtos:
                 info_label = QLabel("Nenhum produto encontrado.")
                 info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                info_label.setStyleSheet("font-size: 16px; padding: 20px;")
+                info_label.setStyleSheet("font-size: 16px; padding: 20px; color: #e2c8a0;")
                 self.produtos_layout.addWidget(info_label)
             else:
                 for produto in produtos:
-                    produto_widget = ProdutoItem(produto, modo='comprar')
+                    produto_widget = ProdutoItem(produto, modo='comprar', tema_escuro=True)
                     produto_widget.comprar_clicado.connect(self.adicionar_ao_carrinho)
                     self.produtos_layout.addWidget(produto_widget)
                     
@@ -795,11 +840,12 @@ class JanelaMarketplace(QWidget):
                     linha = QFrame()
                     linha.setFrameShape(QFrame.Shape.HLine)
                     linha.setFrameShadow(QFrame.Shadow.Sunken)
+                    linha.setStyleSheet("background-color: #152121;")
                     self.produtos_layout.addWidget(linha)
         else:
             erro_label = QLabel("Erro ao carregar produtos. Tente novamente.")
             erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            erro_label.setStyleSheet("font-size: 16px; color: red; padding: 20px;")
+            erro_label.setStyleSheet("font-size: 16px; color: #ff6b6b; padding: 20px;")
             self.produtos_layout.addWidget(erro_label)
     
     def buscar_produtos(self):
@@ -831,6 +877,8 @@ class JanelaMarketplace(QWidget):
     def abrir_carrinho(self):
         """Abre a janela do carrinho de compras"""
         dialog = JanelaCarrinho(self.cliente, self.carrinho)
+        # Aplicar o tema escuro na janela de carrinho
+        dialog.setStyleSheet(self.styleSheet())
         result = dialog.exec()
         
         if result == QDialog.DialogCode.Accepted:
@@ -846,30 +894,70 @@ class JanelaMarketplace(QWidget):
     def abrir_perfil(self):
         """Abre a janela de edição do perfil do usuário"""
         dialog = JanelaPerfilUsuario(self.cliente)
+        # Aplicar o tema escuro na janela de perfil
+        dialog.setStyleSheet(self.styleSheet())
         dialog.exec()
     
     def abrir_minha_loja(self):
         """Abre a janela da loja do usuário"""
-        resposta = self.cliente.obter_minha_loja()
+        resposta = self.cliente.obter_loja()
         
         if resposta and resposta.get('status') == 'sucesso':
             # Usuário já tem uma loja
             loja_data = resposta.get('loja')
             janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
+            # Aplicar o tema escuro na janela da loja
+            janela_loja.setStyleSheet(self.styleSheet())
             janela_loja.exec()
         elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
             # Usuário não tem loja, perguntar se deseja criar
-            reply = QMessageBox.question(self, 'Criar Loja', 
-                                        'Você ainda não possui uma loja. Deseja criar agora?',
-                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Criar Loja")
+            msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1e2b2b;
+                }
+                QLabel {
+                    color: #e2c8a0;
+                }
+                QPushButton {
+                    background-color: #e2c8a0;
+                    color: #333333;
+                    border-radius: 5px;
+                    padding: 5px;
+                    min-width: 80px;
+                }
+            """)
+            reply = msg_box.exec()
             
             if reply == QMessageBox.StandardButton.Yes:
                 dialog = JanelaCriarLoja(self.cliente)
+                # Aplicar o tema escuro na janela de criação de loja
+                dialog.setStyleSheet(self.styleSheet())
                 if dialog.exec() == QDialog.DialogCode.Accepted:
                     # Loja criada, abrir a janela da loja
                     self.abrir_minha_loja()
         else:
-            QMessageBox.warning(self, 'Erro', 'Erro ao acessar informações da loja.')
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Erro")
+            msg_box.setText("Erro ao acessar informações da loja.")
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1e2b2b;
+                }
+                QLabel {
+                    color: #ff6b6b;
+                }
+                QPushButton {
+                    background-color: #e2c8a0;
+                    color: #333333;
+                    border-radius: 5px;
+                    padding: 5px;
+                }
+            """)
+            msg_box.exec()
     
     def fazer_logout(self):
         """Encerra a sessão do usuário e volta para a tela de login"""
@@ -880,7 +968,24 @@ class JanelaMarketplace(QWidget):
             self.janela_login = JanelaLogin()
             self.janela_login.show()
         else:
-            QMessageBox.warning(self, 'Erro', 'Erro ao realizar logout.')
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Erro")
+            msg_box.setText("Erro ao realizar logout.")
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1e2b2b;
+                }
+                QLabel {
+                    color: #ff6b6b;
+                }
+                QPushButton {
+                    background-color: #e2c8a0;
+                    color: #333333;
+                    border-radius: 5px;
+                    padding: 5px;
+                }
+            """)
+            msg_box.exec()
 
 
 class JanelaCarrinho(QDialog):
@@ -1157,7 +1262,7 @@ class JanelaMinhaLoja(QDialog):
         dialog = JanelaCriarLoja(self.cliente, self.loja_dados)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Recarregar informações da loja
-            resposta = self.cliente.obter_minha_loja()
+            resposta = self.cliente.obter_loja()
             if resposta and resposta.get('status') == 'sucesso':
                 self.loja_dados = resposta.get('loja')
                 self.setWindowTitle(f"Minha Loja - {self.loja_dados['nome_loja']}")

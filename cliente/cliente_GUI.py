@@ -1,8 +1,8 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout,QMenu, QLabel, QLineEdit,QListWidget,QStackedWidget, QPushButton,QHBoxLayout, QMessageBox, QComboBox
+from PyQt6.QtWidgets import QApplication, QWidget,  QScrollArea, QFrame, QDialog, QVBoxLayout,QMenu, QLabel,QTextEdit,QSpinBox, QLineEdit,QListWidget,QStackedWidget, QPushButton,QHBoxLayout, QMessageBox, QComboBox
 from cliente import Cliente
 import re # Importando o módulo re para expressões regulares
-from PyQt6.QtGui import QPixmap, QPalette, QBrush,  QPainter
+from PyQt6.QtGui import QPixmap, QPalette, QBrush,  QPainter, QFont
 from PyQt6.QtCore import Qt
 
 
@@ -87,6 +87,7 @@ class JanelaLogin(QWidget):
         if resposta:
             if resposta.get('status') == 'sucesso':
                 QMessageBox.information(self, 'Sucesso', 'Login realizado com sucesso!')
+                self.ir_para_marketplace()
             elif resposta.get('erro') == 'senha_incorreta':
                 QMessageBox.warning(self, 'Erro', 'Senha incorreta!')
             elif resposta.get('erro') == 'usuario_nao_encontrado':
@@ -100,6 +101,11 @@ class JanelaLogin(QWidget):
         self.close()
         self.janela_cadastro = JanelaCadastro(self.cliente)
         self.janela_cadastro.show()
+
+    def ir_para_marketplace(self):
+        self.close()
+        self.janela_marketplace = JanelaMarketplace(self.cliente)
+        self.janela_marketplace.show()
 
 #### Tela de Cadastro
 class JanelaCadastro(QWidget):
@@ -264,134 +270,307 @@ class JanelaCadastro(QWidget):
 
             
 class JanelaMarketplace(QWidget):
-    def __init__(self):
+    """Tela principal do marketplace com navegação entre seções"""
+    def __init__(self, cliente):
         super().__init__()
+        self.cliente = cliente
+        self.carrinho = []  # Lista para armazenar produtos no carrinho
         self.initUI()
-        self.cliente = Cliente()
-    
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        pixmap = QPixmap("imagens/fundo.png")
-        painter.drawPixmap(self.rect(), pixmap)
-
+        self.carregar_produtos()
+        
     def initUI(self):
         self.setWindowTitle('BecoDiagonal - Marketplace')
-        self.setGeometry(200, 200, 800, 600)  # Tamanho da janela inicial
-        self.setStyleSheet("background: transparent;")
+        self.setFixedSize(1366, 768)
+        
+        # Definir o estilo global para aplicação
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
         
         # Layout principal
         main_layout = QVBoxLayout()
         
-        # Menu de navegação
-        menu_layout = QHBoxLayout()
-        self.visualizar_loja_btn = QPushButton('Visualizar Loja', self)
-        self.adicionar_produto_btn = QPushButton('Adicionar Produto', self)
-        self.carrinho_btn = QPushButton('Carrinho', self)
-        self.sair_btn = QPushButton('Sair', self)
-
-        # Conectar os botões às funções
-        self.visualizar_loja_btn.clicked.connect(self.visualizar_loja)
-        self.adicionar_produto_btn.clicked.connect(self.adicionar_produto)
-        self.carrinho_btn.clicked.connect(self.visualizar_carrinho)
-        self.sair_btn.clicked.connect(self.sair)
-
-        # Adicionando os botões ao menu
-        menu_layout.addWidget(self.visualizar_loja_btn)
-        menu_layout.addWidget(self.adicionar_produto_btn)
-        menu_layout.addWidget(self.carrinho_btn)
-        menu_layout.addWidget(self.sair_btn)
+        # Barra superior com logo, busca e botões
+        top_bar = QHBoxLayout()
         
-        # Layout da área principal (stacked widget)
-        self.stack = QStackedWidget(self)
-        self.stack.addWidget(self.create_loja_view())
-        self.stack.addWidget(self.create_adicionar_produto_view())
-        self.stack.addWidget(self.create_carrinho_view())
+        # Logo
+        logo_label = QLabel()
+        logo_pixmap = QPixmap("imagens/logo.png")
+        if not logo_pixmap.isNull():
+            logo_label.setPixmap(logo_pixmap.scaled(150, 50, Qt.AspectRatioMode.KeepAspectRatio))
+        else:
+            print("Imagem não carregada.")
+        top_bar.addWidget(logo_label)
         
-        # Layout final
-        main_layout.addLayout(menu_layout)
-        main_layout.addWidget(self.stack)
+        # Campo de busca
+        self.busca_input = QLineEdit()
+        self.busca_input.setPlaceholderText("Buscar produtos...")
+        self.busca_input.returnPressed.connect(self.buscar_produtos)
+        top_bar.addWidget(self.busca_input, 1)
+        
+        # Botão de busca
+        buscar_btn = QPushButton("Buscar")
+        buscar_btn.clicked.connect(self.buscar_produtos)
+        top_bar.addWidget(buscar_btn)
+        
+        # Botão perfil
+        perfil_btn = QPushButton("Meu Perfil")
+        perfil_btn.clicked.connect(self.abrir_perfil)
+        top_bar.addWidget(perfil_btn)
+        
+        # Botão minha loja
+        minha_loja_btn = QPushButton("Minha Loja")
+        minha_loja_btn.clicked.connect(self.abrir_minha_loja)
+        top_bar.addWidget(minha_loja_btn)
+        
+        # Botão carrinho
+        carrinho_btn = QPushButton("Carrinho (0)")
+        carrinho_btn.clicked.connect(self.abrir_carrinho)
+        self.carrinho_btn = carrinho_btn
+        top_bar.addWidget(carrinho_btn)
+        
+        # Botão sair
+        sair_btn = QPushButton("Sair")
+        sair_btn.clicked.connect(self.fazer_logout)
+        top_bar.addWidget(sair_btn)
+        
+        main_layout.addLayout(top_bar)
+        
+        # Menu de categorias
+        categorias_layout = QHBoxLayout()
+        categorias = ["Todos", "Livros", "Varinhas", "Vestes", "Animais", "Poções", "Outros"]
+        
+        for categoria in categorias:
+            cat_btn = QPushButton(categoria)
+            cat_btn.setObjectName(f"cat_{categoria.lower()}")
+            cat_btn.clicked.connect(lambda checked, cat=categoria: self.filtrar_por_categoria(cat))
+            categorias_layout.addWidget(cat_btn)
+        
+        main_layout.addLayout(categorias_layout)
+        
+        # Área de conteúdo principal com produtos
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_widget = QWidget()
+        self.produtos_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_area.setWidget(self.scroll_widget)
+        
+        main_layout.addWidget(self.scroll_area)
         
         self.setLayout(main_layout)
-        self.show()
-
-    def create_loja_view(self):
-        # Tela para visualizar a loja (listar produtos)
-        loja_widget = QWidget()
-        loja_layout = QVBoxLayout()
         
-        self.produtos_lista = QListWidget()
-        # Exemplo de produtos listados
-        self.produtos_lista.addItem("Produto 1 - R$ 50,00")
-        self.produtos_lista.addItem("Produto 2 - R$ 75,00")
-        self.produtos_lista.addItem("Produto 3 - R$ 100,00")
+    def carregar_produtos(self, categoria=None, termo_busca=None):
+        """Carrega os produtos do servidor com filtros opcionais"""
+        # Limpar layout de produtos
+        while self.produtos_layout.count():
+            item = self.produtos_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
         
-        loja_layout.addWidget(QLabel('Produtos Disponíveis'))
-        loja_layout.addWidget(self.produtos_lista)
+        # Buscar produtos no servidor
+        resposta = self.cliente.listar_produtos(filtros={'categoria': categoria, 'termo_busca': termo_busca})
         
-        loja_widget.setLayout(loja_layout)
-        return loja_widget
-
-    def create_adicionar_produto_view(self):
-        # Tela para adicionar um novo produto
-        adicionar_produto_widget = QWidget()
-        adicionar_produto_layout = QVBoxLayout()
-        
-        # Adicionar campos para título, descrição e preço do produto
-        adicionar_produto_layout.addWidget(QLabel('Título do Produto:'))
-        # Aqui você pode adicionar os campos como QLineEdit para título, preço, etc.
-        # Exemplo:
-        self.produto_titulo_input = QLineEdit()
-        adicionar_produto_layout.addWidget(self.produto_titulo_input)
-        
-        # Botão para adicionar o produto
-        adicionar_produto_btn = QPushButton('Adicionar Produto', self)
-        adicionar_produto_btn.clicked.connect(self.adicionar_produto_ao_sistema)
-        adicionar_produto_layout.addWidget(adicionar_produto_btn)
-        
-        adicionar_produto_widget.setLayout(adicionar_produto_layout)
-        return adicionar_produto_widget
-
-    def create_carrinho_view(self):
-        # Tela do carrinho de compras
-        carrinho_widget = QWidget()
-        carrinho_layout = QVBoxLayout()
-        
-        carrinho_layout.addWidget(QLabel('Carrinho de Compras'))
-        self.produtos_no_carrinho = QListWidget()
-        # Adicionar produtos ao carrinho (exemplo)
-        self.produtos_no_carrinho.addItem("Produto 1 - R$ 50,00")
-        
-        carrinho_layout.addWidget(self.produtos_no_carrinho)
-        
-        carrinho_widget.setLayout(carrinho_layout)
-        return carrinho_widget
-    
-    def visualizar_loja(self):
-        self.stack.setCurrentIndex(0)  # Exibir a visualização da loja
-
-    def adicionar_produto(self):
-        self.stack.setCurrentIndex(1)  # Exibir a tela de adicionar produto
-
-    def visualizar_carrinho(self):
-        self.stack.setCurrentIndex(2)  # Exibir o carrinho
-
-    def adicionar_produto_ao_sistema(self):
-        # Função para adicionar o produto ao sistema (exemplo simples)
-        titulo_produto = self.produto_titulo_input.text()
-        if titulo_produto:
-            self.produtos_lista.addItem(f"{titulo_produto} - R$ 100,00")  # Exemplo de produto adicionado
-            QMessageBox.information(self, 'Produto Adicionado', 'Produto adicionado com sucesso!')
-            self.produto_titulo_input.clear()  # Limpar o campo após adicionar
+        if resposta and resposta.get('status') == 'sucesso':
+            produtos = resposta.get('produtos', [])
+            
+            if not produtos:
+                info_label = QLabel("Nenhum produto encontrado.")
+                info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                info_label.setStyleSheet("font-size: 16px; padding: 20px; color: #e2c8a0;")
+                self.produtos_layout.addWidget(info_label)
+            else:
+                for produto in produtos:
+                    produto_widget = ProdutoItem(produto, modo='comprar', tema_escuro=True)
+                    produto_widget.comprar_clicado.connect(self.adicionar_ao_carrinho)
+                    self.produtos_layout.addWidget(produto_widget)
+                    
+                    # Adicionar linha separadora
+                    linha = QFrame()
+                    linha.setFrameShape(QFrame.Shape.HLine)
+                    linha.setFrameShadow(QFrame.Shadow.Sunken)
+                    linha.setStyleSheet("background-color: #152121;")
+                    self.produtos_layout.addWidget(linha)
         else:
-            QMessageBox.warning(self, 'Erro', 'Por favor, preencha o título do produto.')
+            erro_label = QLabel("Erro ao carregar produtos. Tente novamente.")
+            erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            erro_label.setStyleSheet("font-size: 16px; color: #ff6b6b; padding: 20px;")
+            self.produtos_layout.addWidget(erro_label)
+    
+    def buscar_produtos(self):
+        """Busca produtos com o termo digitado"""
+        termo = self.busca_input.text().strip()
+        self.carregar_produtos(termo_busca=termo)
+    
+    def filtrar_por_categoria(self, categoria):
+        """Filtra produtos por categoria"""
+        if categoria == "Todos":
+            categoria = None
+        self.carregar_produtos(categoria=categoria)
+    
+    def adicionar_ao_carrinho(self, produto):
+        """Adiciona um produto ao carrinho de compras"""
+        # Verificar se o produto já está no carrinho
+        for item in self.carrinho:
+            if item['id'] == produto['id']:
+                QMessageBox.information(self, "Aviso", "Este produto já está no seu carrinho.")
+                return
+        
+        # Adicionar ao carrinho
+        self.carrinho.append(produto)
+        QMessageBox.information(self, "Sucesso", f"'{produto['titulo']}' adicionado ao carrinho!")
+        
+        # Atualizar contador do botão de carrinho
+        self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
+    
+    def abrir_carrinho(self):
+        """Abre a janela do carrinho de compras"""
+        dialog = JanelaCarrinho(self.cliente, self.carrinho)
+        # Aplicar o tema escuro na janela de carrinho
+        dialog.setStyleSheet(self.styleSheet())
+        result = dialog.exec()
+        
+        if result == QDialog.DialogCode.Accepted:
+            # Carrinho foi modificado ou compra foi finalizada
+            self.carrinho = dialog.carrinho
+            self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
+            
+            # Se compra foi finalizada
+            if dialog.compra_finalizada:
+                # Recarregar produtos para refletir mudanças
+                self.carregar_produtos()
+    
+    def abrir_perfil(self):
+        """Abre a janela de edição do perfil do usuário"""
+        dialog = JanelaPerfilUsuario(self.cliente)
+        # Aplicar o tema escuro na janela de perfil
+        dialog.setStyleSheet(self.styleSheet())
+        dialog.exec()
+    
+    def abrir_minha_loja(self):
+        """Abre a janela da loja do usuário"""
+        resposta = self.cliente.obter_minha_loja()
+        
+        if resposta and resposta.get('status') == 'sucesso':
+            # Usuário já tem uma loja
+            loja_data = resposta.get('loja')
+            janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
+            # Aplicar o tema escuro na janela da loja
+            janela_loja.setStyleSheet(self.styleSheet())
+            janela_loja.exec()
+        elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
+            # Usuário não tem loja, perguntar se deseja criar
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Criar Loja")
+            msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1e2b2b;
+                }
+                QLabel {
+                    color: #e2c8a0;
+                }
+                QPushButton {
+                    background-color: #e2c8a0;
+                    color: #333333;
+                    border-radius: 5px;
+                    padding: 5px;
+                    min-width: 80px;
+                }
+            """)
+            reply = msg_box.exec()
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                dialog = JanelaCriarLoja(self.cliente)
+                # Aplicar o tema escuro na janela de criação de loja
+                dialog.setStyleSheet(self.styleSheet())
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    # Loja criada, abrir a janela da loja
+                    self.abrir_minha_loja()
+        else:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Erro")
+            msg_box.setText("Erro ao acessar informações da loja.")
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1e2b2b;
+                }
+                QLabel {
+                    color: #ff6b6b;
+                }
+                QPushButton {
+                    background-color: #e2c8a0;
+                    color: #333333;
+                    border-radius: 5px;
+                    padding: 5px;
+                }
+            """)
+            msg_box.exec()
+    
+    def fazer_logout(self):
+        """Encerra a sessão do usuário e volta para a tela de login"""
+        resposta = self.cliente.logout()
+        
+        if resposta and resposta.get('status') == 'sucesso':
+            self.close()
+            self.janela_login = JanelaLogin()
+            self.janela_login.show()
+        else:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Erro")
+            msg_box.setText("Erro ao realizar logout.")
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1e2b2b;
+                }
+                QLabel {
+                    color: #ff6b6b;
+                }
+                QPushButton {
+                    background-color: #e2c8a0;
+                    color: #333333;
+                    border-radius: 5px;
+                    padding: 5px;
+                }
+            """)
+            msg_box.exec()
 
-    def sair(self):
-        # Função para sair do sistema
-        self.close()
+
+ 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    janela_login = JanelaMarketplace()  # A primeira tela que será aberta é o login
+    janela_login = JanelaLogin()  # A primeira tela que será aberta é o login
     sys.exit(app.exec())
 
 
