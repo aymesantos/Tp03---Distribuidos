@@ -66,81 +66,8 @@ historico_transacoes = {}
 proximo_id_produto = 4
 proximo_id_loja = 2
 
-# Função de login
-def realizar_login(email, senha):
-    if email in usuarios:
-        if usuarios[email]['senha'] == senha:
-            return {'status': 'sucesso'}
-        else:
-            return {'erro': 'senha_incorreta'}
-    else:
-        return {'erro': 'usuario_nao_encontrado'}
 
-# Função de cadastro
-def realizar_cadastro(nome, casa, email, senha, tipo_bruxo):
-    if email in usuarios:
-        return {'erro': 'email_ja_cadastrado'}
-    
-    usuarios[email] = {"senha": senha, "nome": nome, "casa": casa, "tipo_bruxo": tipo_bruxo}
-    return {'status': 'sucesso'}
-
-# Função de visualizar loja
-def visualizar_loja():
-    return {'status': 'sucesso', 'produtos': produtos_disponiveis}
-
-# Função de adicionar produto ao carrinho
-def adicionar_produto_carrinho(email, produto_id):
-    if email not in carrinho:
-        carrinho[email] = []
-    
-    produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
-    if produto:
-        carrinho[email].append(produto)
-        return {'status': 'sucesso', 'produto_adicionado': produto}
-    else:
-        return {'erro': 'produto_nao_encontrado'}
-
-# Função de visualizar carrinho
-def visualizar_carrinho(email):
-    if email in carrinho:
-        return {'status': 'sucesso', 'carrinho': carrinho[email]}
-    else:
-        return {'erro': 'carrinho_vazio'}
-
-# Função principal de processamento de mensagens
-def processar_mensagem(mensagem):
-    acao = mensagem.get('acao')
-
-    # Ação de login
-    if acao == 'login':
-        email = mensagem.get('email')
-        senha = mensagem.get('senha')
-        return realizar_login(email, senha)
-    
-    # Ação de cadastro
-    elif acao == 'cadastro':
-        nome = mensagem.get('nome')
-        casa = mensagem.get('casa')
-        email = mensagem.get('email')
-        senha = mensagem.get('senha')
-        tipo_bruxo = mensagem.get('tipo_bruxo')
-        return realizar_cadastro(nome, casa, email, senha, tipo_bruxo)
-    
-    # Outras ações
-    elif acao == 'visualizar_loja':
-        return visualizar_loja()
-    
-    elif acao == 'adicionar_produto_carrinho':
-        email = mensagem.get('email')
-        produto_id = mensagem.get('produto_id')
-        return adicionar_produto_carrinho(email, produto_id)
-    
-    elif acao == 'visualizar_carrinho':
-        email = mensagem.get('email')
-        return visualizar_carrinho(email)
-    
-    return {'erro': 'acao_invalida'}
-
+# SERVIDOR
 # Função que lida com cada cliente
 def handle_client(cliente_socket, cliente_endereco):
     try:
@@ -180,35 +107,60 @@ def iniciar_servidor(host = host, porta = porta):
         
         print(f"Conexão recebida de {cliente_endereco}")
 
-# Criar uma loja
-def criar_loja(email, nome_loja, descricao, categoria):
-    if email in lojas:
-        return {'erro': 'loja_ja_existe'}
-    
-    lojas[email] = {'nome': nome_loja, 'descricao': descricao, 'categoria': categoria, 'produtos': []}
-    return {'status': 'loja_criada'}
+# CLIENTE
+# Função de login
+def realizar_login(email, senha):
+    if email in usuarios:
+        if usuarios[email]['senha'] == senha:
+            return {'status': 'sucesso'}
+        else:
+            return {'erro': 'senha_incorreta'}
+    else:
+        return {'erro': 'usuario_nao_encontrado'}
 
-# Adicionar um produto na loja
-def adicionar_produto_loja(email, nome_produto, descricao_produto, preco_produto):
-    if email not in lojas:
-        return {'erro': 'loja_nao_encontrada'}
+# Função de cadastro
+def realizar_cadastro(nome, casa, email, senha, tipo_bruxo):
+    if email in usuarios:
+        return {'erro': 'email_ja_cadastrado'}
     
-    produto = {'nome': nome_produto, 'descricao': descricao_produto, 'preco': preco_produto}
-    lojas[email]['produtos'].append(produto)
-    return {'status': 'produto_adicionado'}
+    usuarios[email] = {"senha": senha, "nome": nome, "casa": casa, "tipo_bruxo": tipo_bruxo}
+    return {'status': 'sucesso'}
 
-# Adicionar produtos ao carrinho de compras
-def adicionar_ao_carrinho(email, produto_id):
+# Função de adicionar produto ao carrinho
+def adicionar_produto_carrinho(email, produto_id):
     if email not in carrinho:
         carrinho[email] = []
     
     produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
     if produto:
         carrinho[email].append(produto)
-        return {'status': 'produto_adicionado', 'produto': produto}
+        return {'status': 'sucesso', 'produto_adicionado': produto}
     else:
         return {'erro': 'produto_nao_encontrado'}
 
+# Função de visualizar carrinho
+def visualizar_carrinho(email):
+    if email in carrinho:
+        return {'status': 'sucesso', 'carrinho': carrinho[email]}
+    else:
+        return {'erro': 'carrinho_vazio'}
+
+# Função de visualizar loja
+def visualizar_loja():
+    return {'status': 'sucesso', 'produtos': produtos_disponiveis}
+
+# Função para remover produto do carrinho
+def remover_produto_carrinho(email, produto_id):
+    if email not in carrinho or not carrinho[email]:
+        return {'erro': 'carrinho_vazio'}
+    
+    produto = next((p for p in carrinho[email] if p['id'] == produto_id), None)
+    if produto:
+        carrinho[email].remove(produto)
+        return {'status': 'produto_removido', 'produto': produto}
+    else:
+        return {'erro': 'produto_nao_encontrado'}
+    
 # Validar a quantidade de produtos no estoque
 def validar_estoque(produto_id, quantidade):
     produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
@@ -216,7 +168,7 @@ def validar_estoque(produto_id, quantidade):
         return True
     return False
 
-# Finalizar a compra com validação de estoque
+# Função de finalizar a compra com validação de estoque
 def finalizar_compra(email, metodo_pagamento, produto_id, quantidade):
     if email not in carrinho or not carrinho[email]:
         return {'erro': 'carrinho_vazio'}
@@ -231,21 +183,59 @@ def finalizar_compra(email, metodo_pagamento, produto_id, quantidade):
     carrinho[email] = []  # Limpa o carrinho após a compra
     return {'status': 'compra_finalizada', 'metodo_pagamento': metodo_pagamento}
 
-# Adicionar transação ao histórico
-def registrar_transacao(email, transacao):
-    if email not in historico_transacoes:
-        historico_transacoes[email] = []
-    
-    historico_transacoes[email].append(transacao)
+# Função para buscar produtos por categoria
+def buscar_produtos_por_categoria(categoria):
+    produtos_filtrados = [p for p in produtos_disponiveis if p['categoria'].lower() == categoria.lower()]
+    if produtos_filtrados:
+        return {'status': 'sucesso', 'produtos': produtos_filtrados}
+    else:
+        return {'erro': 'categoria_nao_encontrada'}
 
-# Visualizar o histórico de transações
-def visualizar_historico(email):
-    if email not in historico_transacoes:
-        return {'erro': 'historico_nao_encontrado'}
-    
-    return {'status': 'sucesso', 'historico': historico_transacoes[email]}
+# Função para avaliar um produto
+def avaliar_produto(email, produto_id, avaliacao, comentario):
+    produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
+    if produto:
+        if 'avaliacoes' not in produto:
+            produto['avaliacoes'] = []
+        produto['avaliacoes'].append({'usuario': email, 'avaliacao': avaliacao, 'comentario': comentario})
+        return {'status': 'avaliacao_adicionada'}
+    else:
+        return {'erro': 'produto_nao_encontrado'}
 
-# Editar a loja
+# Função para visualizar avaliações de um produto
+def visualizar_avaliacoes(produto_id):
+    produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
+    if produto and 'avaliacoes' in produto:
+        return {'status': 'sucesso', 'avaliacoes': produto['avaliacoes']}
+    elif produto:
+        return {'status': 'sucesso', 'avaliacoes': []}
+    else:
+        return {'erro': 'produto_nao_encontrado'}
+
+# Função para recomendar produtos com base em categoria
+def recomendar_produtos(categoria):
+    produtos_recomendados = [p for p in produtos_disponiveis if p['categoria'].lower() == categoria.lower()][:5]
+    return {'status': 'sucesso', 'recomendacoes': produtos_recomendados}
+
+# VENDEDOR
+# Função de criar uma loja
+def criar_loja(email, nome_loja, descricao, categoria):
+    if email in lojas:
+        return {'erro': 'loja_ja_existe'}
+    
+    lojas[email] = {'nome': nome_loja, 'descricao': descricao, 'categoria': categoria, 'produtos': []}
+    return {'status': 'loja_criada'}
+
+# Função de adicionar produto na loja
+def adicionar_produto_loja(email, nome_produto, descricao_produto, preco_produto):
+    if email not in lojas:
+        return {'erro': 'loja_nao_encontrada'}
+    
+    produto = {'nome': nome_produto, 'descricao': descricao_produto, 'preco': preco_produto}
+    lojas[email]['produtos'].append(produto)
+    return {'status': 'produto_adicionado'}
+
+# Função de editar loja
 def editar_loja(email, nome_loja=None, descricao=None, categoria=None):
     if email not in lojas:
         return {'erro': 'loja_nao_encontrada'}
@@ -259,7 +249,7 @@ def editar_loja(email, nome_loja=None, descricao=None, categoria=None):
 
     return {'status': 'loja_atualizada'}
 
-# Pausar ou ativar um anúncio
+# Função de pausar ou ativar um anúncio
 def pausar_ativar_produto(email, produto_id, status):
     if email not in lojas:
         return {'erro': 'loja_nao_encontrada'}
@@ -270,6 +260,104 @@ def pausar_ativar_produto(email, produto_id, status):
         return {'status': f'produto_{status}'}
     else:
         return {'erro': 'produto_nao_encontrado'}
+
+# Função de registrar transação
+def registrar_transacao(email, transacao):
+    if email not in historico_transacoes:
+        historico_transacoes[email] = []
+    
+    historico_transacoes[email].append(transacao)
+
+# Função de visualizar o histórico de transações
+def visualizar_historico(email):
+    if email not in historico_transacoes:
+        return {'erro': 'historico_nao_encontrado'}
+    
+    return {'status': 'sucesso', 'historico': historico_transacoes[email]}
+
+# Função de gerenciar avaliações de produtos
+def gerenciar_avaliacoes(email, produto_id, avaliacao, comentario):
+    if email not in lojas:
+        return {'erro': 'loja_nao_encontrada'}
+    
+    produto = next((p for p in lojas[email]['produtos'] if p['id'] == produto_id), None)
+    if produto:
+        if 'avaliacoes' not in produto:
+            produto['avaliacoes'] = []
+        produto['avaliacoes'].append({'avaliacao': avaliacao, 'comentario': comentario})
+        return {'status': 'avaliacao_adicionada'}
+    else:
+        return {'erro': 'produto_nao_encontrado'}
+
+# Função de gerar relatório de vendas
+def gerar_relatorio_vendas(email):
+    if email not in historico_transacoes:
+        return {'erro': 'historico_nao_encontrado'}
+    
+    total_vendas = len(historico_transacoes[email])
+    receita_total = sum(transacao['valor'] for transacao in historico_transacoes[email])
+    return {'status': 'sucesso', 'total_vendas': total_vendas, 'receita_total': receita_total}
+
+# Função de configurar promoções
+def configurar_promocao(email, produto_id, desconto):
+    if email not in lojas:
+        return {'erro': 'loja_nao_encontrada'}
+    
+    produto = next((p for p in lojas[email]['produtos'] if p['id'] == produto_id), None)
+    if produto:
+        produto['preco_promocional'] = produto['preco'] * (1 - desconto / 100)
+        return {'status': 'promocao_configurada', 'preco_promocional': produto['preco_promocional']}
+    else:
+        return {'erro': 'produto_nao_encontrado'}
+
+
+# PROCESSO DE MENSAGENS
+# Função principal de processamento de mensagens
+def processar_mensagem(mensagem):
+    acao = mensagem.get('acao')
+
+    # Ação de login
+    if acao == 'login':
+        email = mensagem.get('email')
+        senha = mensagem.get('senha')
+        return realizar_login(email, senha)
+    
+    # Ação de cadastro
+    elif acao == 'cadastro':
+        nome = mensagem.get('nome')
+        casa = mensagem.get('casa')
+        email = mensagem.get('email')
+        senha = mensagem.get('senha')
+        tipo_bruxo = mensagem.get('tipo_bruxo')
+        return realizar_cadastro(nome, casa, email, senha, tipo_bruxo)
+    
+    # Ações para clientes
+    elif acao == 'adicionar_produto_carrinho':
+        email = mensagem.get('email')
+        produto_id = mensagem.get('produto_id')
+        return adicionar_produto_carrinho(email, produto_id)
+    
+    elif acao == 'visualizar_carrinho':
+        email = mensagem.get('email')
+        return visualizar_carrinho(email)
+    
+    # Ações para vendedores
+    elif acao == 'criar_loja':
+        email = mensagem.get('email')
+        nome_loja = mensagem.get('nome_loja')
+        descricao = mensagem.get('descricao')
+        categoria = mensagem.get('categoria')
+        return criar_loja(email, nome_loja, descricao, categoria)
+    
+    elif acao == 'adicionar_produto_loja':
+        email = mensagem.get('email')
+        nome_produto = mensagem.get('nome_produto')
+        descricao_produto = mensagem.get('descricao_produto')
+        preco_produto = mensagem.get('preco_produto')
+        return adicionar_produto_loja(email, nome_produto, descricao_produto, preco_produto)
+
+    return {'erro': 'acao_invalida'}
+
 
 if __name__ == '__main__':
     iniciar_servidor()
