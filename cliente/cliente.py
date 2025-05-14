@@ -1,42 +1,3 @@
-""" import socket
-import json
-
-class Cliente:
-    def __init__(self, host='localhost', porta=5000):
-        self.host = host
-        self.porta = porta
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((self.host, self.porta))
-        
-    def enviar_mensagem(self, mensagem):
-        try:
-            # Serializa a mensagem para JSON
-            mensagem_json = json.dumps(mensagem)
-            # Envia a mensagem como bytes
-            self.socket.sendall(mensagem_json.encode('utf-8'))
-        except Exception as e:
-            print(f"Erro ao enviar mensagem: {e}")
-        
-    def receber_mensagem(self):
-        try:
-            # Recebe a resposta do servidor
-            resposta = self.socket.recv(1024)
-            # Desserializa a resposta recebida de JSON para dicionário Python
-            return json.loads(resposta.decode('utf-8'))
-        except Exception as e:
-            print(f"Erro ao receber mensagem: {e}")
-            return None
-        
-    def login(self, email, senha):
-        mensagem = {'acao': 'login', 'email': email, 'senha': senha}
-        self.enviar_mensagem(mensagem)
-        return self.receber_mensagem()
-
-    def cadastro(self, nome, casa, email, senha, tipo_bruxo):
-        mensagem = {'acao': 'cadastro', 'nome': nome, 'casa': casa, 'email': email, 'senha': senha, 'tipo_bruxo': tipo_bruxo}
-        self.enviar_mensagem(mensagem)
-        return self.receber_mensagem() """
-
 import socket
 import json
 import threading
@@ -91,16 +52,25 @@ class Cliente:
         """Recebe resposta com timeout para evitar travamentos"""
         try:
             self.socket.settimeout(timeout)
-            # Recebe a resposta do servidor
-            resposta = self.socket.recv(4096)  # Aumentado para receber respostas maiores
-            # Desserializa a resposta recebida de JSON para dicionário Python
-            return json.loads(resposta.decode('utf-8'))
+            resposta = self.socket.recv(4096)
+            if not resposta:
+                print("Erro: resposta vazia do servidor")
+                return None
+            mensagem = resposta.decode('utf-8').strip()
+            if not mensagem:
+                print("Erro: mensagem recebida é vazia")
+                return None
+            return json.loads(mensagem)
         except socket.timeout:
             print("Tempo de espera excedido ao receber resposta do servidor")
             return {"status": "erro", "erro": "timeout"}
+        except json.JSONDecodeError as e:
+            print(f"Erro ao decodificar JSON: {e}")
+            return None
         except Exception as e:
             print(f"Erro ao receber mensagem: {e}")
             return None
+
     
     def enviar_mensagem(self, mensagem):
         """Envia mensagem ao servidor com tratamento para reconexão"""
@@ -139,7 +109,7 @@ class Cliente:
         def operacao_login(email, senha):
             mensagem = {'acao': 'login', 'email': email, 'senha': senha}
             resposta = self.enviar_mensagem(mensagem)
-            
+
             if resposta and resposta.get('status') == 'sucesso':
                 self.usuario_logado = resposta.get('usuario')
                 self.token = resposta.get('token')
@@ -274,18 +244,24 @@ class Cliente:
         else:
             return operacao_editar_loja(nome_loja, descricao, caminho_imagem)
     
-    def obter_loja(self, id_loja=None, callback=None):
-        """Obtém informações da loja (RF008)"""
-        def operacao_obter_loja(id_loja):
-            mensagem = {'acao': 'obter_loja'}
-            if id_loja:
-                mensagem['id_loja'] = id_loja
-            return self.enviar_mensagem(mensagem)
-        
-        if callback:
-            return self.executar_operacao(operacao_obter_loja, callback, id_loja=id_loja)
-        else:
-            return operacao_obter_loja(id_loja)
+    def obter_loja(self):
+        try:
+            mensagem = {'acao': 'obter_loja', 'email': self.usuario_logado['email']}
+            resposta = self.enviar_mensagem(mensagem)
+            print(f"Resposta da loja: {resposta}")
+            if resposta and resposta.get('status') == 'sucesso':
+                return {
+                    'status': resposta['status'],
+                    'nome_loja': resposta['nome_loja'],
+                    'descricao': resposta['descricao'],
+                    'produtos': resposta.get('produtos', [])
+                }
+            else:
+                return None
+        except Exception as e:
+            print(f"Erro ao obter loja: {e}")
+            return None
+
     
     # GERENCIAMENTO DE PRODUTOS
     
@@ -349,6 +325,12 @@ class Cliente:
             return self.executar_operacao(operacao_listar_produtos, callback, filtros=filtros)
         else:
             return operacao_listar_produtos(filtros)
+        
+    def listar_meus_produtos(self):
+        """Lista produtos da loja do usuário"""
+        mensagem = {'acao': 'listar_meus_produtos', 'email': self.usuario_logado['email']}
+        return self.enviar_mensagem(mensagem)
+
     
     def obter_detalhes_produto(self, id_produto, callback=None):
         """Obtém detalhes de um produto específico (RF015)"""

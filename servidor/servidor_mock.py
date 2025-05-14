@@ -23,7 +23,8 @@ lojas = {
         "id": 1,
         "nome": "Loja do Bruxo Mestre",
         "descricao": "Especializada em artigos mágicos raros.",
-        "proprietario": "ayme@gmail.com"
+        "proprietario": "ayme@gmail.com",
+        "produtos": produtos_disponiveis
     }
 }
 
@@ -40,7 +41,25 @@ def processar_mensagem(mensagem):
         email = mensagem.get('email')
         senha = mensagem.get('senha')
         if email in usuarios and usuarios[email]['senha'] == senha:
-            return {'status': 'sucesso'}
+                    # Verificar se o usuário tem uma loja associada
+                    tem_loja = False
+                    for loja in lojas.values():
+                        if loja['proprietario'] == email:
+                            tem_loja = True
+                            break
+
+                    # Retorna a resposta com a informação de se tem loja ou não
+                    return {
+                        'status': 'sucesso',
+                        'tem_loja': True,
+                        'usuario': {
+                            'email': email,
+                            'nome': usuarios[email]['nome'],
+                            'casa': usuarios[email]['casa'],
+                            'tipo_bruxo': usuarios[email]['tipo_bruxo'],
+                        },
+                    }
+        
         elif email not in usuarios:
             return {'erro': 'usuario_nao_encontrado'}
         else:
@@ -66,11 +85,25 @@ def processar_mensagem(mensagem):
             return {'status': 'sucesso', 'produtos': produtos_disponiveis}
 
     elif acao == 'obter_loja':
-        id_loja = mensagem.get('id_loja')
-        loja = lojas.get(id_loja, None)
+        email = mensagem.get('email')
+        print(f"Recebendo solicitação de obter loja com email: {email}")
+        
+        loja = None
+        for loja_data in lojas.values():
+            if loja_data['proprietario'] == email:
+                loja = loja_data
+                break
+        
         if loja:
-            return {'status': 'sucesso', 'loja': loja}
+            print(f"Loja encontrada: {loja}")
+            return {
+                'status': 'sucesso',
+                'nome_loja': loja.get('nome'),
+                'descricao': loja.get('descricao'),
+                'produtos': loja.get('produtos', [])
+            }
         else:
+            print("Loja não encontrada.")
             return {'erro': 'loja_nao_encontrada'}
 
     elif acao == 'criar_loja':
@@ -105,6 +138,28 @@ def processar_mensagem(mensagem):
         produtos_disponiveis.append(novo_produto)
         proximo_id_produto += 1
         return {'status': 'sucesso', 'produto': novo_produto}
+    
+    elif acao == 'listar_meus_produtos':
+        email = mensagem.get('email')
+        print(f"Solicitação para listar produtos da loja do usuário: {email}")
+
+        # Buscar a loja correspondente ao email
+        loja_encontrada = None
+        for loja in lojas:
+            if loja['proprietario'] == email:
+                loja_encontrada = loja
+                break
+
+        if loja_encontrada:
+            return {
+                'status': 'sucesso',
+                'produtos': loja_encontrada.get('produtos', [])
+            }
+        else:
+            return {
+                'status': 'erro',
+                'mensagem': 'Loja não encontrada para este email.'
+            }
 
     elif acao == 'visualizar_produtos_loja':
         loja_id = mensagem.get('loja_id')

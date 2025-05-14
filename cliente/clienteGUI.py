@@ -17,6 +17,7 @@ FONTE_PRINCIPAL = "Verdana"
 COR_TEXTO = "#333333"
 COR_DESTAQUE = "#4b0082"  # Cor "mágica" para destacar elementos
 
+
 class ImagemClicavel(QLabel):
     """Widget de imagem que pode ser clicada para seleção de arquivo"""
     clicado = pyqtSignal()
@@ -35,7 +36,10 @@ class ImagemClicavel(QLabel):
         self.setText(self.texto_placeholder)
         
     def mousePressEvent(self, event):
-        self.clicado.emit()
+        caminho, _ = QFileDialog.getOpenFileName(self, "Selecione uma imagem", "", "Imagens (*.png *.jpg *.bmp)")
+        if caminho:
+            self.atualizar_imagem(caminho)
+            self.clicado.emit() 
         
     def atualizar_imagem(self, caminho):
         if caminho and os.path.exists(caminho):
@@ -147,7 +151,7 @@ class JanelaLogin(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                cursor: pointer;
+                cursor: pointer-hand;
             }
         """)
         self.login_btn.clicked.connect(self.realizar_login)
@@ -161,7 +165,7 @@ class JanelaLogin(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                cursor: pointer;
+                cursor: pointer-hand;
             }
         """)
         self.cadastro_btn.clicked.connect(self.ir_para_cadastro)
@@ -180,6 +184,7 @@ class JanelaLogin(QWidget):
 
         if resposta:
             if resposta.get('status') == 'sucesso':
+                self.usuario_logado = resposta.get('usuario')
                 QMessageBox.information(self, 'Sucesso', 'Login realizado com sucesso!')
                 self.abrir_marketplace()
             elif resposta.get('erro') == 'senha_incorreta':
@@ -304,7 +309,7 @@ class JanelaCadastro(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                cursor: pointer;
+                cursor: pointer-hand;
             }
         """)
         self.cadastrar_btn.clicked.connect(self.realizar_cadastro)
@@ -501,7 +506,7 @@ class JanelaCriarLoja(QDialog):
         self.setLayout(layout)
     
     def selecionar_imagem(self):
-        options = QFileDialog.Options()
+        options = QFileDialog.DontUseNativeDialog
         caminho, _ = QFileDialog.getOpenFileName(
             self, "Selecionar Imagem da Loja", "", 
             "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
@@ -636,7 +641,7 @@ class JanelaCriarProduto(QDialog):
         self.setLayout(layout)
     
     def adicionar_imagem(self):
-        options = QFileDialog.Options()
+        options = QFileDialog.Option()
         caminhos, _ = QFileDialog.getOpenFileNames(
             self, "Selecionar Imagens", "", 
             "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
@@ -809,21 +814,25 @@ class JanelaMarketplace(QWidget):
         main_layout.addWidget(self.scroll_area)
         
         self.setLayout(main_layout)
-        
+
     def carregar_produtos(self, categoria=None, termo_busca=None):
         """Carrega os produtos do servidor com filtros opcionais"""
+        print(f"Carregando produtos com categoria: {categoria}, termo de busca: {termo_busca}")
+        
         # Limpar layout de produtos
         while self.produtos_layout.count():
             item = self.produtos_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-        
+
         # Buscar produtos no servidor
         resposta = self.cliente.listar_produtos(filtros={'categoria': categoria, 'termo_busca': termo_busca})
+        print(resposta)  # Verifique a resposta aqui
 
         if resposta and resposta.get('status') == 'sucesso':
             produtos = resposta.get('produtos', [])
+            print(f"Produtos encontrados: {len(produtos)}")  
             
             if not produtos:
                 info_label = QLabel("Nenhum produto encontrado.")
@@ -847,7 +856,7 @@ class JanelaMarketplace(QWidget):
             erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             erro_label.setStyleSheet("font-size: 16px; color: #ff6b6b; padding: 20px;")
             self.produtos_layout.addWidget(erro_label)
-    
+
     def buscar_produtos(self):
         """Busca produtos com o termo digitado"""
         termo = self.busca_input.text().strip()
@@ -901,64 +910,44 @@ class JanelaMarketplace(QWidget):
     def abrir_minha_loja(self):
         """Abre a janela da loja do usuário"""
         resposta = self.cliente.obter_loja()
+        print(f"Resposta da loja: {resposta}")         
         
-        if resposta and resposta.get('status') == 'sucesso':
-            # Usuário já tem uma loja
-            loja_data = resposta.get('loja')
-            janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
-            # Aplicar o tema escuro na janela da loja
-            janela_loja.setStyleSheet(self.styleSheet())
-            janela_loja.exec()
-        elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
-            # Usuário não tem loja, perguntar se deseja criar
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Criar Loja")
-            msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            msg_box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1e2b2b;
-                }
-                QLabel {
-                    color: #e2c8a0;
-                }
-                QPushButton {
-                    background-color: #e2c8a0;
-                    color: #333333;
-                    border-radius: 5px;
-                    padding: 5px;
-                    min-width: 80px;
-                }
-            """)
-            reply = msg_box.exec()
-            
-            if reply == QMessageBox.StandardButton.Yes:
-                dialog = JanelaCriarLoja(self.cliente)
-                # Aplicar o tema escuro na janela de criação de loja
-                dialog.setStyleSheet(self.styleSheet())
-                if dialog.exec() == QDialog.DialogCode.Accepted:
-                    # Loja criada, abrir a janela da loja
-                    self.abrir_minha_loja()
+        if resposta:
+            if resposta.get('status') == 'sucesso':
+                # Usuário já tem uma loja
+                loja_data = resposta #.get('loja')
+                janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
+                janela_loja.setStyleSheet(self.styleSheet())
+                janela_loja.exec()
+            elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
+                # Usuário não tem loja, perguntar se deseja criar
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Criar Loja")
+                msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+                reply = msg_box.exec()
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    dialog = JanelaCriarLoja(self.cliente)
+                    # Aplicar o tema escuro na janela de criação de loja
+                    dialog.setStyleSheet(self.styleSheet())
+                    if dialog.exec() == QDialog.DialogCode.Accepted:
+                        # Loja criada, abrir a janela da loja
+                        self.abrir_minha_loja()
+            else:
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Erro")
+                msg_box.setText("Erro ao acessar informações da loja.")
+
+                msg_box.exec()
+
         else:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Erro")
-            msg_box.setText("Erro ao acessar informações da loja.")
-            msg_box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1e2b2b;
-                }
-                QLabel {
-                    color: #ff6b6b;
-                }
-                QPushButton {
-                    background-color: #e2c8a0;
-                    color: #333333;
-                    border-radius: 5px;
-                    padding: 5px;
-                }
-            """)
+            msg_box.setText("Erro ao acessar informações da loja X")
             msg_box.exec()
-    
+        
     def fazer_logout(self):
         """Encerra a sessão do usuário e volta para a tela de login"""
         resposta = self.cliente.logout()
@@ -971,20 +960,6 @@ class JanelaMarketplace(QWidget):
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Erro")
             msg_box.setText("Erro ao realizar logout.")
-            msg_box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1e2b2b;
-                }
-                QLabel {
-                    color: #ff6b6b;
-                }
-                QPushButton {
-                    background-color: #e2c8a0;
-                    color: #333333;
-                    border-radius: 5px;
-                    padding: 5px;
-                }
-            """)
             msg_box.exec()
 
 
@@ -1000,6 +975,40 @@ class JanelaCarrinho(QDialog):
     def initUI(self):
         self.setWindowTitle("Carrinho de Compras")
         self.setFixedSize(800, 600)
+
+                # Definir o estilo global para aplicação
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
         
         layout = QVBoxLayout()
         
