@@ -413,7 +413,7 @@ class Cliente:
     def historico_compras(self, callback=None):
         """Obtém o histórico de compras do usuário (RF018)"""
         def operacao_historico_compras():
-            mensagem = {'acao': 'historico_compras'}
+            mensagem = {'acao': 'historico_compras', 'email': self.usuario_logado['email']}
             return self.enviar_mensagem(mensagem)
         
         if callback:
@@ -424,7 +424,7 @@ class Cliente:
     def historico_vendas(self, callback=None):
         """Obtém o histórico de vendas do usuário (RF018)"""
         def operacao_historico_vendas():
-            mensagem = {'acao': 'historico_vendas'}
+            mensagem = {'acao': 'historico_vendas', 'email': self.usuario_logado['email']}
             return self.enviar_mensagem(mensagem)
         
         if callback:

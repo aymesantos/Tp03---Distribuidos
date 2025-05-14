@@ -1357,7 +1357,7 @@ class JanelaHistorico(QDialog):
     def listar_compras(self, layout):
         """Lista as compras do usuário"""
         # Buscar compras do servidor
-        resposta = self.cliente.listar_compras()
+        resposta = self.cliente.historico_compras()
         
         if resposta and resposta.get('status') == 'sucesso':
             compras = resposta.get('compras', [])
@@ -1395,7 +1395,7 @@ class JanelaHistorico(QDialog):
     def listar_vendas(self, layout):
         """Lista as vendas do usuário"""
         # Buscar vendas do servidor
-        resposta = self.cliente.listar_vendas()
+        resposta = self.cliente.historico_vendas()
         
         if resposta and resposta.get('status') == 'sucesso':
             vendas = resposta.get('vendas', [])

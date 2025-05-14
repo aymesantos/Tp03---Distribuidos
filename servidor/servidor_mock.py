@@ -18,6 +18,8 @@ produtos_disponiveis = [
 ]
 
 carrinho = {}  # carrinho[email] = [produto]
+transacoes = []  # Lista de transações realizadas
+# Mock de lojas
 lojas = {
     1: {
         "id": 1,
@@ -188,6 +190,38 @@ def processar_mensagem(mensagem):
             return {'erro': 'carrinho_vazio'}
         carrinho[email] = []  # Esvaziar carrinho após compra
         return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
+    
+    elif acao == 'historico_compras':
+        email = mensagem.get('email')
+
+        compras_usuario = []
+        for transacao in transacoes:
+            if transacao.get('comprador_email') == email:
+                compras_usuario.append({
+                    'produto': transacao['produto'],
+                    'quantidade': transacao['quantidade'],
+                    'total': transacao['total'],
+                    'data': transacao['data']
+                })
+        
+        return {'status': 'sucesso', 'compras': compras_usuario}
+
+    elif acao == 'historico_vendas':
+        email = mensagem.get('email')
+
+        vendas_usuario = []
+        for transacao in transacoes:
+            if transacao.get('vendedor_email') == email:
+                vendas_usuario.append({
+                    'produto': transacao['produto'],
+                    'quantidade': transacao['quantidade'],
+                    'total': transacao['total'],
+                    'data': transacao['data']
+                })
+        
+        return {'status': 'sucesso', 'vendas': vendas_usuario}
+
+
 
     return {'erro': 'acao_invalida'}
 
