@@ -122,6 +122,78 @@ class Cliente:
             return self.executar_operacao(operacao_login, callback, email=email, senha=senha)
         else:
             return operacao_login(email, senha)
+        
+
+    def obter_dados_perfil(self, callback=None):
+        """Obtém os dados do perfil do usuário logado"""
+        def operacao_obter_perfil():
+            print("=== DEBUG: Iniciando obter_dados_perfil ===")
+            print(f"DEBUG: Usuario logado: {self.usuario_logado}")
+            
+            if not self.usuario_logado:
+                return {"status": "erro", "erro": "usuario_nao_logado"}
+            
+            email = self.usuario_logado.get('email')
+            
+            if not email:
+                return {"status": "erro", "erro": "email_nao_disponivel"}
+            
+            mensagem = {'acao': 'obter_perfil', 'email': email}
+            
+            resposta = self.enviar_mensagem(mensagem)
+            
+            if resposta and resposta.get('status') == 'sucesso':
+                dados_perfil = resposta.get('dados_perfil', {})
+                
+                for chave, valor in dados_perfil.items():
+                    self.usuario_logado[chave] = valor
+
+                if 'casa' in self.usuario_logado and 'casa_hogwarts' not in self.usuario_logado:
+                    self.usuario_logado['casa_hogwarts'] = self.usuario_logado['casa']
+
+                if 'foto_perfil' not in self.usuario_logado:
+                    self.usuario_logado['foto_perfil'] = None
+                    
+                return self.usuario_logado
+            else:
+                print(f"DEBUG: Erro na resposta - {resposta}")
+            
+            print("=== DEBUG: Finalizando obter_dados_perfil ===")
+            return resposta
+        
+        if callback:
+            return self.executar_operacao(operacao_obter_perfil, callback)
+        else:
+            return operacao_obter_perfil()
+        
+    def atualizar_perfil(self, nome, casa_hogwarts, tipo_bruxo, foto_perfil=None, callback=None):
+        """Atualiza os dados do perfil do usuário no servidor"""
+        def operacao_atualizar_perfil(nome, casa_hogwarts, tipo_bruxo, foto_perfil):
+            try:
+                mensagem = {
+                    'acao': 'atualizar_perfil',
+                    'nome': nome,
+                    'casa_hogwarts': casa_hogwarts,
+                    'tipo_bruxo': tipo_bruxo
+                }
+                if foto_perfil:
+
+                    with open(foto_perfil, "rb") as img_file:
+                        img_data = img_file.read()
+                        img_base64 = base64.b64encode(img_data).decode('utf-8')
+                        mensagem["foto_perfil"] = img_base64
+                return self.enviar_mensagem(mensagem)
+                
+            except Exception as e:
+                print(f"Erro ao atualizar perfil: {str(e)}")
+                return {"status": "erro", "mensagem": str(e)}
+        
+        if callback:
+            return self.executar_operacao(operacao_atualizar_perfil, callback, 
+                                        nome=nome, casa_hogwarts=casa_hogwarts, 
+                                        tipo_bruxo=tipo_bruxo, foto_perfil=foto_perfil)
+        else:
+            return operacao_atualizar_perfil(nome, casa_hogwarts, tipo_bruxo, foto_perfil)
 
     def cadastro(self, nome, casa, email, senha, tipo_bruxo, callback=None):
         """Cadastra um novo usuário"""
