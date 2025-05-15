@@ -43,6 +43,8 @@ class Cliente:
             
             # Envia a mensagem como bytes
             self.socket.sendall(mensagem_json.encode('utf-8'))
+            print(f"Enviando para o servidor: {mensagem_json}")
+
             return True
         except Exception as e:
             print(f"Erro ao enviar mensagem: {e}")
@@ -265,53 +267,71 @@ class Cliente:
     
     # GERENCIAMENTO DE PRODUTOS
     
-    def criar_produto(self, titulo, descricao, preco, categoria, caminhos_imagens=None, callback=None):
+    def criar_produto(self, nome, descricao, preco, categoria, caminho_imagem=None, callback=None):
         """Cria um novo anúncio de produto (RF013)"""
-        def operacao_criar_produto(titulo, descricao, preco, categoria, caminhos_imagens):
-            imagens_base64 = []
-            
-            if caminhos_imagens:
-                for caminho in caminhos_imagens:
-                    try:
-                        img_data = self.redimensionar_imagem(caminho)
-                        if img_data:
-                            imagens_base64.append(base64.b64encode(img_data).decode('utf-8'))
-                    except Exception as e:
-                        print(f"Erro ao processar imagem do produto: {e}")
-            
+        def operacao_criar_produto(nome, descricao, preco, categoria, caminho_imagem):
+            imagens_base64 = None
+
+            if caminho_imagem:
+                try:
+                    img_data = self.redimensionar_imagem(caminho_imagem)
+                    if img_data:
+                        imagens_base64 = base64.b64encode(img_data).decode('utf-8')
+                except Exception as e:
+                    print(f"Erro ao processar imagem do produto: {e}")
+
             mensagem = {
                 'acao': 'criar_produto',
-                'titulo': titulo,
+                'nome': nome,
                 'descricao': descricao,
                 'preco': preco,
                 'categoria': categoria,
                 'imagens_base64': imagens_base64
             }
             return self.enviar_mensagem(mensagem)
-        
+
         if callback:
             return self.executar_operacao(operacao_criar_produto, callback,
-                                        titulo=titulo, descricao=descricao,
+                                        nome=nome, descricao=descricao,
                                         preco=preco, categoria=categoria,
-                                        caminhos_imagens=caminhos_imagens)
+                                        caminho_imagem=caminho_imagem)
         else:
-            return operacao_criar_produto(titulo, descricao, preco, categoria, caminhos_imagens)
-    
-    def atualizar_status_produto(self, id_produto, status, callback=None):
-        """Atualiza o status de um produto (RF014, RF017)"""
-        def operacao_atualizar_status(id_produto, status):
+            return operacao_criar_produto(nome, descricao, preco, categoria, caminho_imagem)
+
+
+    def editar_produto(self, id_produto, nome, preco, categoria, descricao, caminho_imagem=None, callback=None):
+        """Edita um produto existente, com imagem opcional"""
+        def operacao_editar_produto(id_produto, nome, preco, categoria, descricao, caminho_imagem):
+            imagem_base64 = None
+            if caminho_imagem:
+                try:
+                    with open(caminho_imagem, 'rb') as img_file:
+                        imagem_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+                except Exception as e:
+                    print(f"Erro ao abrir imagem: {e}")
+
             mensagem = {
-                'acao': 'atualizar_status_produto',
-                'id_produto': id_produto,
-                'status': status  # 'ativo', 'pausado', 'desativado', 'vendido'
+                'acao': 'editar_produto',
+                'produto_id': id_produto,
+                'nome': nome,
+                'preco': preco,
+                'categoria': categoria,
+                'descricao': descricao,
+                'imagem_base64': imagem_base64
             }
             return self.enviar_mensagem(mensagem)
-        
+
         if callback:
-            return self.executar_operacao(operacao_atualizar_status, callback,
-                                        id_produto=id_produto, status=status)
+            return self.executar_operacao(operacao_editar_produto, callback,
+                                        id_produto=id_produto,
+                                        nome=nome,
+                                        preco=preco,
+                                        categoria=categoria,
+                                        descricao=descricao,
+                                        caminho_imagem=caminho_imagem)
         else:
-            return operacao_atualizar_status(id_produto, status)
+            return operacao_editar_produto(id_produto, nome, preco, categoria, descricao, caminho_imagem)
+
     
     def listar_produtos(self, filtros=None, callback=None):
         """Lista produtos disponíveis para compra (RF015)"""
@@ -319,6 +339,7 @@ class Cliente:
             mensagem = {'acao': 'listar_produtos'}
             if filtros:
                 mensagem['filtros'] = filtros
+                print(f"[CLIENTE] Enviando mensagem de listagem: {mensagem}")  # DEBUG
             return self.enviar_mensagem(mensagem)
         
         if callback:
@@ -390,24 +411,20 @@ class Cliente:
             return operacao_visualizar_carrinho()
     
     # PAGAMENTO E FINALIZAÇÃO DE COMPRA
-    
-    def finalizar_compra(self, metodo_pagamento, dados_pagamento, callback=None):
-        """Finaliza a compra dos itens no carrinho (RF016, RF019)"""
-        def operacao_finalizar_compra(metodo_pagamento, dados_pagamento):
+        
+    def finalizar_compra(self, callback=None):
+        def operacao_finalizar_compra():
             mensagem = {
                 'acao': 'finalizar_compra',
-                'metodo_pagamento': metodo_pagamento,  # 'cartao', 'boleto', 'pix'
-                'dados_pagamento': dados_pagamento
+                'email': self.email
             }
             return self.enviar_mensagem(mensagem)
-        
+
         if callback:
-            return self.executar_operacao(operacao_finalizar_compra, callback,
-                                        metodo_pagamento=metodo_pagamento, 
-                                        dados_pagamento=dados_pagamento)
+            return self.executar_operacao(operacao_finalizar_compra, callback)
         else:
-            return operacao_finalizar_compra(metodo_pagamento, dados_pagamento)
-    
+            return operacao_finalizar_compra()
+ 
     # HISTÓRICO DE TRANSAÇÕES
     
     def historico_compras(self, callback=None):

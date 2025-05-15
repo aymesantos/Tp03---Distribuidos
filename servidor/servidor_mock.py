@@ -1,5 +1,7 @@
 import socket
 import json
+import os
+import base64
 
 # Mock de dados
 usuarios = {
@@ -17,6 +19,9 @@ produtos_disponiveis = [
     {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Feitiçaria", "loja_id": 1, "descricao": "Feitiços antigos"}
 ]
 
+
+historico_compras = {}  # chave: email do cliente, valor: lista de compras
+historico_vendas = {}   # chave: email do vendedor, valor: lista de vendas
 carrinho = {}  # carrinho[email] = [produto]
 transacoes = []  # Lista de transações realizadas
 # Mock de lojas
@@ -85,6 +90,37 @@ def processar_mensagem(mensagem):
             return {'status': 'sucesso', 'produtos': produtos_filtrados}
         else:
             return {'status': 'sucesso', 'produtos': produtos_disponiveis}
+            
+    elif acao == 'atualizar_foto_perfil':
+        email = mensagem.get('email')
+        img_base64 = mensagem.get('imagem_base64')
+
+        print(f"Recebendo solicitação de atualizar foto de perfil para o usuário: {email}")
+
+        if not email or not img_base64:
+            print("Dados insuficientes para atualizar foto de perfil.")
+            return {'status': 'erro', 'erro': 'dados_incompletos'}
+
+        try:
+            img_bytes = base64.b64decode(img_base64)
+
+            pasta_perfis = 'fotos_perfil'
+            if not os.path.exists(pasta_perfis):
+                os.makedirs(pasta_perfis)
+
+            nome_arquivo = os.path.join(pasta_perfis, f"{email.replace('@', '_').replace('.', '_')}.png")
+
+            with open(nome_arquivo, 'wb') as f:
+                f.write(img_bytes)
+
+            print(f"Foto de perfil salva em: {nome_arquivo}")
+
+            return {'status': 'sucesso', 'mensagem': 'Foto de perfil atualizada'}
+
+        except Exception as e:
+            print(f"Erro ao salvar foto de perfil: {e}")
+            return {'status': 'erro', 'erro': 'falha_ao_salvar_imagem'}
+
 
     elif acao == 'obter_loja':
         email = mensagem.get('email')
@@ -128,6 +164,7 @@ def processar_mensagem(mensagem):
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
         loja_id = mensagem.get('loja_id')
+        imagem_base64 = mensagem.get('imagem_base64')
 
         novo_produto = {
             "id": proximo_id_produto,
@@ -135,11 +172,33 @@ def processar_mensagem(mensagem):
             "preco": preco,
             "categoria": categoria,
             "descricao": descricao,
-            "loja_id": loja_id
+            "loja_id": loja_id,
+            "imagem_base64": imagem_base64  # só uma imagem
         }
         produtos_disponiveis.append(novo_produto)
         proximo_id_produto += 1
         return {'status': 'sucesso', 'produto': novo_produto}
+
+    elif acao == 'editar_produto':
+        produto_id = mensagem.get('produto_id')
+        nome = mensagem.get('nome')
+        preco = mensagem.get('preco')
+        categoria = mensagem.get('categoria')
+        descricao = mensagem.get('descricao')
+        imagem_base64 = mensagem.get('imagem_base64')
+
+        produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
+        if produto:
+            produto['nome'] = nome
+            produto['preco'] = preco
+            produto['categoria'] = categoria
+            produto['descricao'] = descricao
+            if imagem_base64 is not None:
+                produto['imagem_base64'] = imagem_base64
+            return {'status': 'sucesso', 'produto_editado': produto}
+        else:
+            return {'erro': 'produto_nao_encontrado'}
+
     
     elif acao == 'listar_meus_produtos':
         email = mensagem.get('email')
@@ -147,7 +206,7 @@ def processar_mensagem(mensagem):
 
         # Buscar a loja correspondente ao email
         loja_encontrada = None
-        for loja in lojas:
+        for loja in lojas.values():
             if loja['proprietario'] == email:
                 loja_encontrada = loja
                 break
@@ -167,6 +226,7 @@ def processar_mensagem(mensagem):
         loja_id = mensagem.get('loja_id')
         produtos = [p for p in produtos_disponiveis if p['loja_id'] == loja_id]
         return {'status': 'sucesso', 'produtos': produtos}
+    
 
     elif acao == 'adicionar_produto_carrinho':
         email = mensagem.get('email')
@@ -184,12 +244,56 @@ def processar_mensagem(mensagem):
         email = mensagem.get('email')
         return {'status': 'sucesso', 'carrinho': carrinho.get(email, [])}
 
-    elif acao == 'comprar_carrinho':
+    elif acao == 'finalizar_compra':
         email = mensagem.get('email')
-        if email not in carrinho or not carrinho[email]:
+        metodo_pagamento = 'galeao'  
+        if not email or email not in carrinho or not carrinho[email]:
             return {'erro': 'carrinho_vazio'}
-        carrinho[email] = []  # Esvaziar carrinho após compra
+
+        itens = carrinho[email]
+        carrinho[email] = [] 
+        compra = {
+            'produtos': itens,
+            'metodo_pagamento': metodo_pagamento
+        }
+        historico_compras.setdefault(email, []).append(compra)
+        for item in itens:
+            vendedor = item.get('vendedor')
+            if vendedor:
+                venda = {
+                    'produto': item,
+                    'comprador': email,
+                    'metodo_pagamento': metodo_pagamento
+                }
+                historico_vendas.setdefault(vendedor, []).append(venda)
+
         return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
+
+    
+    elif acao == 'listar_produtos':
+        filtros = mensagem.get('filtros', {})
+        categoria = filtros.get('categoria')
+        termo_busca = filtros.get('termo_busca')
+
+        print(f"[SERVIDOR] Listando produtos - Categoria: {categoria}, Termo de busca: {termo_busca}")
+        print(f"[SERVIDOR] Produtos disponíveis: {len(produtos_disponiveis)}")
+
+        produtos_filtrados = produtos_disponiveis.copy()
+
+        if categoria:
+            produtos_filtrados = [p for p in produtos_filtrados if p.get('categoria', '').lower() == categoria.lower()]
+            print(f"[SERVIDOR] Após filtro por categoria ({categoria}): {len(produtos_filtrados)} produtos")
+            
+        if termo_busca:
+            termo = termo_busca.lower()
+            produtos_filtrados = [
+                p for p in produtos_filtrados
+                if termo in p.get('nome', '').lower() or termo in p.get('descricao', '').lower()
+                
+            ]
+            print(f"[SERVIDOR] Após filtro por termo de busca ({termo}): {len(produtos_filtrados)} produtos")
+        return {'status': 'sucesso', 'produtos': produtos_filtrados}
+
     
     elif acao == 'historico_compras':
         email = mensagem.get('email')
@@ -234,13 +338,16 @@ def iniciar_servidor(host='localhost', porta=5000):
     while True:
         cliente_socket, cliente_endereco = servidor.accept()
         print(f"Conexão recebida de {cliente_endereco}")
-
+        
         try:
-            dados = cliente_socket.recv(4096).decode('utf-8')
-            mensagem = json.loads(dados)
-            print(f"Mensagem recebida: {mensagem}")
-            resposta = processar_mensagem(mensagem)
-            cliente_socket.sendall(json.dumps(resposta).encode('utf-8'))
+            while True:
+                dados = cliente_socket.recv(4096)
+                if not dados:
+                    break
+                mensagem = json.loads(dados.decode('utf-8'))
+                print(f"Mensagem recebida: {mensagem}")
+                resposta = processar_mensagem(mensagem)
+                cliente_socket.sendall(json.dumps(resposta).encode('utf-8'))
         except Exception as e:
             print(f"Erro: {e}")
         finally:

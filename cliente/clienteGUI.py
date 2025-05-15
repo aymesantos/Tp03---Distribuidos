@@ -79,7 +79,7 @@ class ProdutoItem(QWidget):
         
         # Informações do produto
         info_layout = QVBoxLayout()
-        titulo = QLabel(f"<b>{self.produto['titulo']}</b>")
+        titulo = QLabel(f"<b>{self.produto['nome']}</b>")
         titulo.setFont(QFont(FONTE_PRINCIPAL, 12))
         
         preco = QLabel(f"R$ {self.produto['preco']:.2f}")
@@ -573,7 +573,7 @@ class JanelaCriarProduto(QDialog):
         layout.addWidget(QLabel("Título do Produto:"))
         self.titulo_input = QLineEdit()
         if self.produto_dados:
-            self.titulo_input.setText(self.produto_dados.get('titulo', ''))
+            self.titulo_input.setText(self.produto_dados.get('nome', ''))
         layout.addWidget(self.titulo_input)
         
         # Descrição do produto
@@ -841,7 +841,7 @@ class JanelaMarketplace(QWidget):
                 self.produtos_layout.addWidget(info_label)
             else:
                 for produto in produtos:
-                    produto_widget = ProdutoItem(produto, modo='comprar', tema_escuro=True)
+                    produto_widget = ProdutoItem(produto, modo='comprar')
                     produto_widget.comprar_clicado.connect(self.adicionar_ao_carrinho)
                     self.produtos_layout.addWidget(produto_widget)
                     
@@ -878,7 +878,7 @@ class JanelaMarketplace(QWidget):
         
         # Adicionar ao carrinho
         self.carrinho.append(produto)
-        QMessageBox.information(self, "Sucesso", f"'{produto['titulo']}' adicionado ao carrinho!")
+        QMessageBox.information(self, "Sucesso", f"'{produto['nome']}' adicionado ao carrinho!")
         
         # Atualizar contador do botão de carrinho
         self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
@@ -1088,7 +1088,7 @@ class JanelaCarrinho(QDialog):
         info_widget = QWidget()
         info_layout = QVBoxLayout(info_widget)
         
-        titulo = QLabel(produto['titulo'])
+        titulo = QLabel(produto['nome'])
         titulo.setFont(QFont(FONTE_PRINCIPAL, 12, QFont.Weight.Bold))
         
         preco = QLabel(f"R$ {float(produto['preco']):.2f}")
@@ -1126,7 +1126,7 @@ class JanelaCarrinho(QDialog):
         if reply == QMessageBox.StandardButton.Yes:
             # Enviar requisição para o servidor
             produtos_ids = [p['id'] for p in self.carrinho]
-            resposta = self.cliente.realizar_compra(produtos_ids)
+            resposta = self.cliente.realizar_compra()
             
             if resposta and resposta.get('status') == 'sucesso':
                 QMessageBox.information(self, "Sucesso", "Compra realizada com sucesso!")
