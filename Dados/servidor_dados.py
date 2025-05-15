@@ -1,89 +1,89 @@
-
 import json
 import threading
 from socket import socket, AF_INET, SOCK_STREAM
-from pathlib import Path
-
-# Caminho para os arquivos de dados
-base_path = Path(__file__).parent
-dados_path = base_path
-
-def carregar_dados(nome_arquivo):
-    with open(dados_path / nome_arquivo, encoding="utf-8") as f:
-        return json.load(f)
-
-def salvar_dados(nome_arquivo, dados):
-    with open(dados_path / nome_arquivo, "w", encoding="utf-8") as f:
-        json.dump(dados, f, indent=4)
+from banco_dados import *
+from datetime import datetime
 
 # OPERACOES
 
 def cadastrar_usuario(param):
-    usuarios = carregar_dados("usuarios.json")
-    novo_id = max([u["id"] for u in usuarios], default=0) + 1
-    param["id"] = novo_id
-    usuarios.append(param)
-    salvar_dados("usuarios.json", usuarios)
-    return {"status": "ok", "mensagem": "Usuário cadastrado com sucesso", "id": novo_id}
+    nome = param.get("nome")
+    email = param.get("email")
+    senha = param.get("senha")
+    tipo = param.get("tipo", "cliente")
+    return cadastrar_usuario_sqlite(nome, email, senha, tipo)
+
+def cadastrar_usuario_sqlite(nome, email, senha, tipo):
+    return cadastrar_usuario(nome, email, senha, tipo)
 
 def autenticar_usuario(param):
-    usuarios = carregar_dados("usuarios.json")
-    for u in usuarios:
-        if u["email"] == param["email"] and u["senha"] == param["senha"]:
-            return {"status": "ok", "usuario": u}
-    return {"status": "erro", "mensagem": "Usuário ou senha inválidos"}
+    email = param.get("email")
+    senha = param.get("senha")
+    return autenticar_usuario_sqlite(email, senha)
+
+def autenticar_usuario_sqlite(email, senha):
+    return autenticar_usuario(email, senha)
 
 def buscar_usuario(param):
-    usuarios = carregar_dados("usuarios.json")
-    for u in usuarios:
-        if u["id"] == param["id"]:
-            return {"status": "ok", "usuario": u}
-    return {"status": "erro", "mensagem": "Usuário não encontrado"}
+    usuario_id = param.get("id")
+    return buscar_usuario_sqlite(usuario_id)
+
+def buscar_usuario_sqlite(usuario_id):
+    return buscar_usuario(usuario_id)
+
+def cadastrar_loja(param):
+    nome = param.get("nome")
+    descricao = param.get("descricao")
+    usuario_id = param.get("usuario_id")
+    return cadastrar_loja(nome, descricao, usuario_id)
+
+def listar_lojas(param):
+    return listar_lojas()
+
+def buscar_loja(param):
+    loja_id = param.get("id")
+    return buscar_loja(loja_id)
 
 def cadastrar_produto(param):
-    produtos = carregar_dados("produtos.json")
-    novo_id = max([p["id"] for p in produtos], default=0) + 1
-    param["id"] = novo_id
-    produtos.append(param)
-    salvar_dados("produtos.json", produtos)
-    return {"status": "ok", "mensagem": "Produto cadastrado", "id": novo_id}
+    nome = param.get("nome")
+    descricao = param.get("descricao")
+    preco = param.get("preco")
+    estoque = param.get("estoque")
+    loja_id = param.get("loja_id")
+    return cadastrar_produto_sqlite(nome, descricao, preco, estoque, loja_id)
+
+def cadastrar_produto_sqlite(nome, descricao, preco, estoque, loja_id):
+    return cadastrar_produto(nome, descricao, preco, estoque, loja_id)
 
 def listar_produtos(param):
-    produtos = carregar_dados("produtos.json")
-    return {"status": "ok", "produtos": produtos}
+    return listar_produtos()
 
 def buscar_produto(param):
-    produtos = carregar_dados("produtos.json")
-    for p in produtos:
-        if p["id"] == param["id"]:
-            return {"status": "ok", "produto": p}
-    return {"status": "erro", "mensagem": "Produto não encontrado"}
+    produto_id = param.get("id")
+    return buscar_produto(produto_id)
 
 def comprar_produto(param):
-    produtos = carregar_dados("produtos.json")
-    compras = carregar_dados("compras.json")
-
-    for produto in produtos:
-        if produto["id"] == param["produto_id"]:
-            if produto["estoque"] >= param["quantidade"]:
-                produto["estoque"] -= param["quantidade"]
-                nova_compra = {
-                    "cliente_id": param["cliente_id"],
-                    "produto_id": param["produto_id"],
-                    "quantidade": param["quantidade"]
-                }
-                compras.append(nova_compra)
-                salvar_dados("produtos.json", produtos)
-                salvar_dados("compras.json", compras)
-                return {"status": "ok", "mensagem": "Compra realizada com sucesso"}
-            else:
-                return {"status": "erro", "mensagem": "Estoque insuficiente"}
-    return {"status": "erro", "mensagem": "Produto não encontrado"}
+    usuario_id = param.get("cliente_id")
+    itens = param.get("itens")  # lista de dicionários: produto_id, quantidade, preco_unitario
+    data = datetime.now().isoformat()
+    status = "realizada"
+    return registrar_compra(usuario_id, data, status, itens)
 
 def listar_compras_cliente(param):
-    compras = carregar_dados("compras.json")
-    cliente_compras = [c for c in compras if c["cliente_id"] == param["cliente_id"]]
-    return {"status": "ok", "compras": cliente_compras}
+    usuario_id = param.get("cliente_id")
+    return listar_compras_usuario(usuario_id)
+
+def registrar_avaliacao_op(param):
+    usuario_id = param.get("usuario_id")
+    produto_id = param.get("produto_id")
+    nota = param.get("nota")
+    comentario = param.get("comentario")
+    data = datetime.now().isoformat()
+    return registrar_avaliacao(usuario_id, produto_id, nota, comentario, data)
+
+def listar_avaliacoes_produto_op(param):
+    produto_id = param.get("produto_id")
+    return listar_avaliacoes_produto(produto_id)
 
 # SERVIDOR SOCKET 
 
@@ -91,11 +91,16 @@ OPERACOES = {
     "cadastrar_usuario": cadastrar_usuario,
     "autenticar_usuario": autenticar_usuario,
     "buscar_usuario": buscar_usuario,
+    "cadastrar_loja": cadastrar_loja,
+    "listar_lojas": listar_lojas,
+    "buscar_loja": buscar_loja,
     "cadastrar_produto": cadastrar_produto,
     "listar_produtos": listar_produtos,
     "buscar_produto": buscar_produto,
     "comprar_produto": comprar_produto,
-    "listar_compras_cliente": listar_compras_cliente
+    "listar_compras_cliente": listar_compras_cliente,
+    "registrar_avaliacao": registrar_avaliacao_op,
+    "listar_avaliacoes_produto": listar_avaliacoes_produto_op
 }
 
 def tratar_cliente(conexao, endereco):
