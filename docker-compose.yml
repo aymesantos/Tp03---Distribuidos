@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  servidor:
+    build:
+      context: .
+      dockerfile: servidor/Dockerfile  # Caminho do Dockerfile do servidor
+    ports:
+      - "5000:5000"  # Expõe a porta 5000
+    networks:
+      - beco-diagonal-network
+
+  cliente:
+    build:
+      context: .
+      dockerfile: cliente/Dockerfile  # Caminho do Dockerfile do cliente
+    depends_on:
+      - servidor  # Garante que o servidor esteja em execução antes do cliente
+    networks:
+      - beco-diagonal-network
+
+networks:
+  beco-diagonal-network:
+    driver: bridge

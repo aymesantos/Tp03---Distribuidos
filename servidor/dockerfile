@@ -1,0 +1,15 @@
+# Use uma imagem base do Python
+FROM python:3.9-slim
+
+# Crie e defina o diretório de trabalho dentro do container
+WORKDIR /app
+
+# Copie o restante dos arquivos do projeto para o container
+COPY . /app/
+
+# Exponha a porta que o servidor vai usar
+EXPOSE 5000
+
+# Comando para rodar o servidor
+CMD ["python", "servidor.py"]
+
