@@ -67,31 +67,28 @@ class ProdutoItem(QWidget):
         
     def initUI(self):
         layout = QHBoxLayout()
-        
-        # Imagem do produto
-        imagem_label = QLabel()
-        if self.produto.get('imagem_base64'):
-            imagem_data = base64.b64decode(self.produto['imagem_base64'][0] if isinstance(self.produto['imagem_base64'], list) else self.produto['imagem_base64'])
-            pixmap = QPixmap()
-            pixmap.loadFromData(imagem_data)
-            pixmap = pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio)
-            imagem_label.setPixmap(pixmap)
-        else:
-            imagem_label.setText("Sem imagem")
-        imagem_label.setFixedSize(80, 80)
-        
+
         # Informações do produto
         info_layout = QVBoxLayout()
-        titulo = QLabel(f"<b>{self.produto['nome']}</b>")
+        titulo = QLabel(f"<b>{self.produto.get('nome', 'Sem nome')}</b>")
         titulo.setFont(QFont(FONTE_PRINCIPAL, 12))
-        
-        preco = QLabel(f"R$ {self.produto['preco']:.2f}")
+
+        preco = QLabel(f"R$ {self.produto.get('preco', 0):.2f}")
         preco.setFont(QFont(FONTE_PRINCIPAL, 10))
         preco.setStyleSheet(f"color: {COR_DESTAQUE};")
-        
+
+        descricao_texto = self.produto.get('descricao', 'Sem descrição')
+        # Limitar descrição para, por exemplo, 100 caracteres com "..."
+        if len(descricao_texto) > 100:
+            descricao_texto = descricao_texto[:100] + "..."
+        descricao = QLabel(descricao_texto)
+        descricao.setFont(QFont(FONTE_PRINCIPAL, 9))
+        descricao.setWordWrap(True)
+
         info_layout.addWidget(titulo)
         info_layout.addWidget(preco)
-        
+        info_layout.addWidget(descricao)
+
         # Botão de ação
         if self.modo == 'comprar':
             acao_btn = QPushButton("Adicionar ao Carrinho")
@@ -99,11 +96,10 @@ class ProdutoItem(QWidget):
         else:  # modo editar
             acao_btn = QPushButton("Editar")
             acao_btn.clicked.connect(lambda: self.editar_clicado.emit(self.produto))
-        
-        layout.addWidget(imagem_label)
+
         layout.addLayout(info_layout, 1)
         layout.addWidget(acao_btn)
-        
+
         self.setLayout(layout)
 
 class JanelaLogin(QWidget):
@@ -741,6 +737,44 @@ class JanelaCriarLoja(QDialog):
         modo = "Editar" if self.loja_dados else "Criar"
         self.setWindowTitle(f"{modo} Loja")
         self.setFixedSize(600, 500)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QComboBox {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
         
         layout = QVBoxLayout()
         
@@ -765,11 +799,7 @@ class JanelaCriarLoja(QDialog):
         self.descricao_input.setMaximumHeight(100)
         layout.addWidget(self.descricao_input)
         
-        # Imagem da loja
-        layout.addWidget(QLabel("Imagem da Loja:"))
-        self.imagem_loja = ImagemClicavel("Clique para selecionar imagem da loja")
-        self.imagem_loja.clicado.connect(self.selecionar_imagem)
-        layout.addWidget(self.imagem_loja, alignment=Qt.AlignmentFlag.AlignCenter)
+        # Removida a parte da imagem
         
         # Botões
         botoes_layout = QHBoxLayout()
@@ -784,15 +814,7 @@ class JanelaCriarLoja(QDialog):
         
         self.setLayout(layout)
     
-    def selecionar_imagem(self):
-        options = QFileDialog.DontUseNativeDialog
-        caminho, _ = QFileDialog.getOpenFileName(
-            self, "Selecionar Imagem da Loja", "", 
-            "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
-        )
-        
-        if caminho:
-            self.imagem_loja.atualizar_imagem(caminho)
+    # Removido o método selecionar_imagem
     
     def salvar_loja(self):
         nome_loja = self.nome_loja_input.text().strip()
@@ -806,18 +828,16 @@ class JanelaCriarLoja(QDialog):
             QMessageBox.warning(self, "Erro", "A descrição da loja é obrigatória.")
             return
         
-        # Se tem dados da loja, é edição (RF012), senão é criação (RF011)
+        # Remove o caminho_imagem na chamada
         if self.loja_dados:
             resposta = self.cliente.editar_loja(
                 nome_loja=nome_loja, 
-                descricao=descricao,
-                caminho_imagem=self.imagem_loja.caminho_imagem
+                descricao=descricao
             )
         else:
             resposta = self.cliente.criar_loja(
                 nome_loja=nome_loja,
-                descricao=descricao,
-                caminho_imagem=self.imagem_loja.caminho_imagem
+                descricao=descricao
             )
         
         if resposta and resposta.get('status') == 'sucesso':
@@ -831,14 +851,51 @@ class JanelaCriarProduto(QDialog):
     def __init__(self, cliente, produto_dados=None):
         super().__init__()
         self.cliente = cliente
-        self.produto_dados = produto_dados  # Se None, criação; se tem dados, edição
-        self.caminho_imagem = None
+        self.produto_dados = produto_dados
         self.initUI()
         
     def initUI(self):
         modo = "Editar" if self.produto_dados else "Criar"
         self.setWindowTitle(f"{modo} Produto")
-        self.setFixedSize(600, 600)
+        self.setFixedSize(600, 500)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QComboBox {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
         
         layout = QVBoxLayout()
         
@@ -868,10 +925,7 @@ class JanelaCriarProduto(QDialog):
         self.preco_input = QDoubleSpinBox()
         self.preco_input.setRange(0.01, 99999.99)
         self.preco_input.setDecimals(2)
-        if self.produto_dados:
-            self.preco_input.setValue(float(self.produto_dados.get('preco', 0)))
-        else:
-            self.preco_input.setValue(1.00)
+        self.preco_input.setValue(float(self.produto_dados.get('preco', 1.00)) if self.produto_dados else 1.00)
         layout.addWidget(self.preco_input)
         
         # Categoria
@@ -885,16 +939,6 @@ class JanelaCriarProduto(QDialog):
                 self.categoria_input.setCurrentIndex(index)
         layout.addWidget(self.categoria_input)
 
-        # Imagem
-        layout.addWidget(QLabel("Imagem do Produto:"))
-        self.btn_adicionar_imagem = QPushButton("Selecionar Imagem")
-        self.btn_adicionar_imagem.clicked.connect(self.selecionar_imagem)
-        layout.addWidget(self.btn_adicionar_imagem)
-
-        self.label_imagem = QLabel("Nenhuma imagem selecionada")
-        self.label_imagem.setStyleSheet("font-style: italic; color: gray;")
-        layout.addWidget(self.label_imagem)
-        
         # Status (somente para edição)
         if self.produto_dados:
             layout.addWidget(QLabel("Status do Produto:"))
@@ -917,18 +961,6 @@ class JanelaCriarProduto(QDialog):
         
         self.setLayout(layout)
 
-    def selecionar_imagem(self):
-        caminho, _ = QFileDialog.getOpenFileName(
-            self, "Selecionar Imagem", "", 
-            "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)"
-        )
-        if caminho:
-            self.caminho_imagem = caminho
-            self.label_imagem.setText(os.path.basename(caminho))
-        else:
-            self.caminho_imagem = None
-            self.label_imagem.setText("Nenhuma imagem selecionada")
-
     def salvar_produto(self):
         nome = self.nome_input.text().strip()
         descricao = self.descricao_input.toPlainText().strip()
@@ -942,10 +974,6 @@ class JanelaCriarProduto(QDialog):
         if preco <= 0:
             QMessageBox.warning(self, "Erro", "O preço deve ser maior que zero.")
             return
-        
-        if not self.caminho_imagem and not self.produto_dados:
-            QMessageBox.warning(self, "Erro", "Adicione uma imagem ao produto.")
-            return
 
         if self.produto_dados:
             status = self.status_input.currentText()
@@ -955,16 +983,14 @@ class JanelaCriarProduto(QDialog):
                 descricao=descricao,
                 preco=preco,
                 categoria=categoria,
-                status=status,
-                caminho_imagem=self.caminho_imagem
+                status=status
             )
         else:
             resposta = self.cliente.criar_produto(
                 nome=nome,
                 descricao=descricao,
                 preco=preco,
-                categoria=categoria,
-                caminho_imagem=self.caminho_imagem
+                categoria=categoria
             )
         
         if resposta and resposta.get('status') == 'sucesso':
@@ -972,8 +998,6 @@ class JanelaCriarProduto(QDialog):
             self.accept()
         else:
             QMessageBox.warning(self, "Erro", f"Erro ao {'atualizar' if self.produto_dados else 'criar'} o produto: {resposta.get('mensagem', 'Tente novamente')}")
-
-
 
 class JanelaMarketplace(QWidget):
     """Tela principal do marketplace com navegação entre seções"""
@@ -1189,43 +1213,44 @@ class JanelaMarketplace(QWidget):
     def abrir_minha_loja(self):
         """Abre a janela da loja do usuário"""
         resposta = self.cliente.obter_loja()
-        print(f"Resposta da loja: {resposta}")         
+        print(f"Resposta da loja (tipo: {type(resposta)}): {resposta}")
         
         if resposta:
             if resposta.get('status') == 'sucesso':
-                # Usuário já tem uma loja
-                loja_data = resposta #.get('loja')
+                loja_data = resposta
                 janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
                 janela_loja.setStyleSheet(self.styleSheet())
                 janela_loja.exec()
-            elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
-                # Usuário não tem loja, perguntar se deseja criar
+            
+            elif resposta.get('erro') == 'loja_nao_encontrada':
+                print("Loja não encontrada, perguntando se usuário deseja criar.")
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle("Criar Loja")
                 msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
                 msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
                 reply = msg_box.exec()
                 
                 if reply == QMessageBox.StandardButton.Yes:
                     dialog = JanelaCriarLoja(self.cliente)
-                    # Aplicar o tema escuro na janela de criação de loja
                     dialog.setStyleSheet(self.styleSheet())
                     if dialog.exec() == QDialog.DialogCode.Accepted:
-                        # Loja criada, abrir a janela da loja
+                        print("Loja criada com sucesso, reabrindo janela da loja.")
                         self.abrir_minha_loja()
+                else:
+                    print("Usuário optou por não criar a loja.")
+            
             else:
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle("Erro")
                 msg_box.setText("Erro ao acessar informações da loja.")
-
                 msg_box.exec()
-
+        
         else:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Erro")
             msg_box.setText("Erro ao acessar informações da loja X")
             msg_box.exec()
+
         
     def fazer_logout(self):
         """Encerra a sessão do usuário e volta para a tela de login"""
@@ -1432,19 +1457,6 @@ class JanelaMinhaLoja(QDialog):
         
         # Informações da loja
         info_layout = QHBoxLayout()
-        
-        # Imagem da loja
-        loja_imagem = QLabel()
-        if self.loja_dados.get('imagem_base64'):
-            imagem_data = base64.b64decode(self.loja_dados['imagem_base64'])
-            pixmap = QPixmap()
-            pixmap.loadFromData(imagem_data)
-            pixmap = pixmap.scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio)
-            loja_imagem.setPixmap(pixmap)
-        else:
-            loja_imagem.setText("Sem imagem")
-        loja_imagem.setFixedSize(100, 100)
-        info_layout.addWidget(loja_imagem)
         
         # Detalhes da loja
         detalhes_layout = QVBoxLayout()
@@ -1673,20 +1685,6 @@ class JanelaHistoricoCompras(QDialog):
         layout = QHBoxLayout(widget)
         layout.setSpacing(10)
 
-        imagem_path = transacao.get('imagem')  # caminho para imagem
-        if imagem_path and os.path.exists(imagem_path):
-            pixmap = QPixmap(imagem_path)
-            pixmap = pixmap.scaledToWidth(80)
-            imagem_label = QLabel()
-            imagem_label.setPixmap(pixmap)
-        else:
-            imagem_label = QLabel("Sem imagem")
-            imagem_label.setFixedSize(80, 80)
-            imagem_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            imagem_label.setStyleSheet("border: 1px solid gray; font-size: 10px;")
-
-        layout.addWidget(imagem_label)
-
         produto = transacao.get('produto', 'Produto desconhecido')
         valor = transacao.get('valor', 0.0)
         data = transacao.get('data', 'Data não informada')
@@ -1805,20 +1803,6 @@ class JanelaHistoricoVendas(QDialog):
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setSpacing(10)
-
-        imagem_path = transacao.get('imagem') 
-        if imagem_path and os.path.exists(imagem_path):
-            pixmap = QPixmap(imagem_path)
-            pixmap = pixmap.scaledToWidth(80)
-            imagem_label = QLabel()
-            imagem_label.setPixmap(pixmap)
-        else:
-            imagem_label = QLabel("Sem imagem")
-            imagem_label.setFixedSize(80, 80)
-            imagem_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            imagem_label.setStyleSheet("border: 1px solid gray; font-size: 10px;")
-
-        layout.addWidget(imagem_label)
 
         produto = transacao.get('produto', 'Produto desconhecido')
         valor = transacao.get('valor', 0.0)

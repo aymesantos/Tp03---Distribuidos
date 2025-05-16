@@ -227,37 +227,25 @@ class Cliente:
     
     # GERENCIAMENTO DE LOJA
     
-    def criar_loja(self, nome_loja, descricao, caminho_imagem=None, callback=None):
+    def criar_loja(self, nome_loja, descricao, callback=None):
         """Cria uma nova loja para o usuário (RF011)"""
-        def operacao_criar_loja(nome_loja, descricao, caminho_imagem):
-            imagem_base64 = None
-            if caminho_imagem:
-                try:
-                    # Redimensiona e codifica a imagem
-                    img_data = self.redimensionar_imagem(caminho_imagem)
-                    if img_data:
-                        imagem_base64 = base64.b64encode(img_data).decode('utf-8')
-                except Exception as e:
-                    print(f"Erro ao processar imagem da loja: {e}")
-            
+        def operacao_criar_loja(nome_loja, descricao):
             mensagem = {
                 'acao': 'criar_loja',
                 'nome_loja': nome_loja,
-                'descricao': descricao,
-                'imagem_base64': imagem_base64
+                'descricao': descricao
             }
             return self.enviar_mensagem(mensagem)
         
         if callback:
             return self.executar_operacao(operacao_criar_loja, callback, 
-                                        nome_loja=nome_loja, descricao=descricao, 
-                                        caminho_imagem=caminho_imagem)
+                                        nome_loja=nome_loja, descricao=descricao)
         else:
-            return operacao_criar_loja(nome_loja, descricao, caminho_imagem)
-    
-    def editar_loja(self, nome_loja=None, descricao=None, caminho_imagem=None, callback=None):
+            return operacao_criar_loja(nome_loja, descricao)
+
+    def editar_loja(self, nome_loja=None, descricao=None, callback=None):
         """Edita informações da loja do usuário (RF012)"""
-        def operacao_editar_loja(nome_loja, descricao, caminho_imagem):
+        def operacao_editar_loja(nome_loja, descricao):
             dados = {'acao': 'editar_loja'}
             
             if nome_loja:
@@ -265,22 +253,14 @@ class Cliente:
             if descricao:
                 dados['descricao'] = descricao
             
-            if caminho_imagem:
-                try:
-                    img_data = self.redimensionar_imagem(caminho_imagem)
-                    if img_data:
-                        dados['imagem_base64'] = base64.b64encode(img_data).decode('utf-8')
-                except Exception as e:
-                    print(f"Erro ao processar imagem da loja: {e}")
-            
             return self.enviar_mensagem(dados)
         
         if callback:
             return self.executar_operacao(operacao_editar_loja, callback,
-                                        nome_loja=nome_loja, descricao=descricao,
-                                        caminho_imagem=caminho_imagem)
+                                        nome_loja=nome_loja, descricao=descricao)
         else:
-            return operacao_editar_loja(nome_loja, descricao, caminho_imagem)
+            return operacao_editar_loja(nome_loja, descricao)
+
     
     def obter_loja(self):
         try:
@@ -295,7 +275,7 @@ class Cliente:
                     'produtos': resposta.get('produtos', [])
                 }
             else:
-                return None
+                return resposta
         except Exception as e:
             print(f"Erro ao obter loja: {e}")
             return None

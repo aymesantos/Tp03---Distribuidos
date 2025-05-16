@@ -23,7 +23,13 @@ usuarios = {
 produtos_disponiveis = [
     {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Varinhas", "loja_id": 1, "descricao": "Feita com pena de fênix"},
     {"id": 2, "nome": "Poção de Cura", "preco": 50.00, "categoria": "Poções", "loja_id": 1, "descricao": "Recupera vitalidade"},
-    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Livros", "loja_id": 1, "descricao": "Feitiços antigos"}
+    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Livros", "loja_id": 1, "descricao": "Feitiços antigos"},
+    {"id": 4, "nome": "Capa da Invisibilidade", "preco": 500.00, "categoria": "Vestes", "loja_id": 1, "descricao": "Torna o usuário invisível"},
+    {"id": 5, "nome": "Chave de Portal", "preco": 150.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Transporta para locais distantes"},
+    {"id": 6, "nome": "Espelho de Ojesed", "preco": 300.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Mostra o desejo mais profundo do coração"},
+    {"id": 7, "nome": "Livro de Poções Avançadas", "preco": 250.00, "categoria": "Livros", "loja_id": 1, "descricao": "Receitas de poções raras e poderosas"},
+    {"id": 8, "nome": "Vassoura Nimbus 2000", "preco": 800.00, "categoria": "Vassouras", "loja_id": 1, "descricao": "Vassoura de corrida de alta velocidade"},
+    {"id": 9, "nome": "Mapa do Maroto", "preco": 400.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Revela todos os segredos de Hogwarts"}
 ]
 
 
@@ -210,7 +216,6 @@ def processar_mensagem(mensagem):
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
         loja_id = mensagem.get('loja_id')
-        imagem_base64 = mensagem.get('imagem_base64')
 
         novo_produto = {
             "id": proximo_id_produto,
@@ -219,7 +224,7 @@ def processar_mensagem(mensagem):
             "categoria": categoria,
             "descricao": descricao,
             "loja_id": loja_id,
-            "imagem_base64": imagem_base64  # só uma imagem
+
         }
         produtos_disponiveis.append(novo_produto)
         proximo_id_produto += 1
@@ -231,7 +236,6 @@ def processar_mensagem(mensagem):
         preco = mensagem.get('preco')
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
-        imagem_base64 = mensagem.get('imagem_base64')
 
         produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
         if produto:
@@ -239,8 +243,6 @@ def processar_mensagem(mensagem):
             produto['preco'] = preco
             produto['categoria'] = categoria
             produto['descricao'] = descricao
-            if imagem_base64 is not None:
-                produto['imagem_base64'] = imagem_base64
             return {'status': 'sucesso', 'produto_editado': produto}
         else:
             return {'erro': 'produto_nao_encontrado'}
