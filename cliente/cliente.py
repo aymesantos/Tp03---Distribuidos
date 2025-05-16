@@ -209,10 +209,21 @@ class Cliente:
             return operacao_cadastro(nome, casa, email, senha, tipo_bruxo)
     
     def logout(self):
-        """Realiza logout do usuário"""
+        """Realiza logout do usuário e encerra a conexão"""
+        # Fecha a conexão, se existir
+        if hasattr(self, 'socket') and self.socket:
+            try:
+                self.socket.shutdown(socket.SHUT_RDWR)  # opcional para uma finalização limpa
+                self.socket.close()
+            except Exception as e:
+                print(f"Erro ao fechar conexão: {e}")
+
+            self.socket = None
+
         self.usuario_logado = None
         self.token = None
         return {"status": "sucesso", "mensagem": "Logout realizado com sucesso"}
+
     
     # GERENCIAMENTO DE LOJA
     

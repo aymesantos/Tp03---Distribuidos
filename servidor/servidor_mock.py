@@ -11,7 +11,12 @@ usuarios = {
         "nome": "Ayme Faustino",
         "casa": "Grifinória",
         "tipo_bruxo": "Sangue-Puro",
-        "foto_perfil": None
+    },
+    "usuario@gmail.com": {
+        "senha": "nova",
+        "nome": "Novo Usuário",
+        "casa": "Corvinal",
+        "tipo_bruxo": "Mestiço",
     }
 }
 
