@@ -164,15 +164,16 @@ class Cliente:
             return operacao_obter_perfil()
 
         
-    def atualizar_perfil(self, nome, casa_hogwarts, tipo_bruxo, callback=None):
+    def atualizar_perfil(self, nome, casa_hogwarts, tipo_bruxo, email, callback=None):
         """Atualiza os dados do perfil do usuário no servidor"""
-        def operacao_atualizar_perfil(nome, casa_hogwarts, tipo_bruxo):
+        def operacao_atualizar_perfil(nome, casa_hogwarts, tipo_bruxo, email):
             try:
                 mensagem = {
                     'acao': 'atualizar_perfil',
                     'nome': nome,
                     'casa_hogwarts': casa_hogwarts,
-                    'tipo_bruxo': tipo_bruxo
+                    'tipo_bruxo': tipo_bruxo,
+                    'email': email
                 }
                 return self.enviar_mensagem(mensagem)
             except Exception as e:
@@ -226,7 +227,7 @@ class Cliente:
 
     
     # GERENCIAMENTO DE LOJA
-    
+
     def criar_loja(self, nome_loja, descricao, callback=None):
         """Cria uma nova loja para o usuário (RF011)"""
         def operacao_criar_loja(nome_loja, descricao):
