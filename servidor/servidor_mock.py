@@ -100,42 +100,12 @@ def processar_mensagem(mensagem):
         else:
             return {'status': 'sucesso', 'produtos': produtos_disponiveis}
             
-    elif acao == 'atualizar_foto_perfil':
-        email = mensagem.get('email')
-        img_base64 = mensagem.get('imagem_base64')
-
-        print(f"Recebendo solicitação de atualizar foto de perfil para o usuário: {email}")
-
-        if not email or not img_base64:
-            print("Dados insuficientes para atualizar foto de perfil.")
-            return {'status': 'erro', 'erro': 'dados_incompletos'}
-
-        try:
-            img_bytes = base64.b64decode(img_base64)
-
-            pasta_perfis = 'fotos_perfil'
-            if not os.path.exists(pasta_perfis):
-                os.makedirs(pasta_perfis)
-
-            nome_arquivo = os.path.join(pasta_perfis, f"{email.replace('@', '_').replace('.', '_')}.png")
-
-            with open(nome_arquivo, 'wb') as f:
-                f.write(img_bytes)
-
-            print(f"Foto de perfil salva em: {nome_arquivo}")
-
-            return {'status': 'sucesso', 'mensagem': 'Foto de perfil atualizada'}
-
-        except Exception as e:
-            print(f"Erro ao salvar foto de perfil: {e}")
-            return {'status': 'erro', 'erro': 'falha_ao_salvar_imagem'}
         
     elif acao == 'atualizar_perfil':
         email = mensagem.get('email')
         nome = mensagem.get('nome')
         casa_hogwarts = mensagem.get('casa_hogwarts')
         tipo_bruxo = mensagem.get('tipo_bruxo')
-        foto_perfil = mensagem.get('foto_perfil')  
 
         print(f"Recebendo solicitação para atualizar perfil do usuário: {email}")
 
@@ -147,54 +117,36 @@ def processar_mensagem(mensagem):
             if email not in usuarios:
                 print(f"Usuário não encontrado: {email}")
                 return {'status': 'erro', 'erro': 'usuario_nao_encontrado'}
-            
+
             usuarios[email]['nome'] = nome
             usuarios[email]['casa'] = casa_hogwarts
             usuarios[email]['tipo_bruxo'] = tipo_bruxo
-            
+
             print(f"Dados do usuário atualizados: {email}")
             print(f"Nome: {nome}")
             print(f"Casa de Hogwarts: {casa_hogwarts}")
             print(f"Tipo de Bruxo: {tipo_bruxo}")
-            
-            if foto_perfil:
-                try:
-                    img_bytes = base64.b64decode(foto_perfil)
-                    
-                    pasta_perfis = 'fotos_perfil'
-                    if not os.path.exists(pasta_perfis):
-                        os.makedirs(pasta_perfis)
-                    
-                    nome_arquivo = os.path.join(pasta_perfis, f"{email.replace('@', '_').replace('.', '_')}.png")
-                    
-                    with open(nome_arquivo, 'wb') as f:
-                        f.write(img_bytes)
-                    
-                    usuarios[email]['foto_perfil'] = nome_arquivo
-                    
-                    print(f"Foto de perfil salva em: {nome_arquivo}")
-                    
-                except Exception as e:
-                    print(f"Erro ao salvar foto de perfil: {e}")
-            
-            return {'status': 'sucesso', 'mensagem': 'Perfil atualizado com sucesso', 'dados': {
-                'nome': nome,
-                'casa': casa_hogwarts,
-                'tipo_bruxo': tipo_bruxo,
-                'foto_perfil': usuarios[email]['foto_perfil']
-            }}
-                
+
+            return {
+                'status': 'sucesso',
+                'mensagem': 'Perfil atualizado com sucesso',
+                'dados': {
+                    'nome': nome,
+                    'casa': casa_hogwarts,
+                    'tipo_bruxo': tipo_bruxo
+                }
+            }
+
         except Exception as e:
             print(f"Erro ao atualizar perfil: {e}")
             return {'status': 'erro', 'erro': 'falha_ao_atualizar_perfil'}
 
-
     elif acao == 'obter_perfil':
         email = mensagem.get('email')
-        
+
         if not email:
             return {'status': 'erro', 'erro': 'email_nao_fornecido'}
-        
+
         if email not in usuarios:
             return {'status': 'erro', 'erro': 'usuario_nao_encontrado'}
 
@@ -204,11 +156,8 @@ def processar_mensagem(mensagem):
             'tipo_bruxo': usuarios[email].get('tipo_bruxo', '')
         }
 
-        if 'foto_perfil' in usuarios[email]:
-            dados_perfil['foto_perfil'] = usuarios[email]['foto_perfil']
-        
         print(f"Enviando dados do perfil para o usuário: {email}")
-        
+
         return {
             'status': 'sucesso',
             'dados_perfil': dados_perfil

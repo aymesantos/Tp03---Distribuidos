@@ -405,7 +405,7 @@ class JanelaPerfilUsuario(QDialog):
     
     def initUI(self):
         self.setWindowTitle("Perfil do Usuário")
-        self.setFixedSize(500, 550)
+        self.setFixedSize(500, 550) 
         self.setStyleSheet("""
             QWidget {
                 background-color: #1e2b2b;
@@ -447,27 +447,7 @@ class JanelaPerfilUsuario(QDialog):
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_principal.addWidget(titulo)
         
-        # Foto de perfil
-        self.foto_container = QFrame()
-        self.foto_container.setFixedSize(180, 180)
-        self.foto_container.setStyleSheet(f"""
-            background-color: #152121;
-            border-radius: 90px;
-            border: 3px solid {COR_TEXTO};
-        """)
-        
-        foto_layout = QVBoxLayout(self.foto_container)
-        foto_layout.setContentsMargins(5, 5, 5, 5)
-        
-        self.foto_label = QLabel()
-        self.foto_label.setFixedSize(170, 170)
-        self.foto_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.foto_label.setStyleSheet("border-radius: 85px;")
-        foto_layout.addWidget(self.foto_label)
-        
-        layout_principal.addWidget(self.foto_container, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # Informações do usuário
+        # Informações do usuário (sem foto)
         info_frame = QFrame()
         info_frame.setStyleSheet("""
             border: 1px solid #e2c8a0;
@@ -563,45 +543,12 @@ class JanelaPerfilUsuario(QDialog):
             else:
                 self.tipo_valor.setText("Não disponível")
             
-            # Verifica se há foto de perfil
-            if 'foto_perfil' in dados and dados["foto_perfil"]:
-                pixmap = QPixmap(dados["foto_perfil"])
-                if not pixmap.isNull():
-                    pixmap_arredondada = self.criar_pixmap_arredondado(pixmap)
-                    self.foto_label.setPixmap(pixmap_arredondada)
-                    print("DEBUG: Foto carregada com sucesso")
-                else:
-                    print("DEBUG: Pixmap nulo, usando foto padrão")
-                    self.definir_foto_padrao()
-            else:
-                self.definir_foto_padrao()
-                
         except Exception as e:
             print(f"ERRO: {str(e)}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar dados do perfil: {str(e)}")
-            self.definir_foto_padrao()
             self.nome_valor.setText("Erro ao carregar")
             self.casa_valor.setText("Erro ao carregar")
             self.tipo_valor.setText("Erro ao carregar")
-    
-    def definir_foto_padrao(self):
-        """Define uma imagem padrão quando não há foto de perfil"""
-        self.foto_label.setText("Sem\nfoto de\nperfil")
-        self.foto_label.setStyleSheet("""
-            border-radius: 85px;
-            background-color: #152121;
-            color: #e2c8a0;
-            font-weight: bold;
-            font-size: 14px;
-        """)
-    
-    def criar_pixmap_arredondado(self, pixmap):
-        """Cria um pixmap circular para a foto de perfil"""
-        if pixmap.isNull():
-            return pixmap
-            
-        tamanho = min(self.foto_label.width(), self.foto_label.height())
-        return pixmap.scaled(tamanho, tamanho, Qt.AspectRatioMode.KeepAspectRatio)
     
     def abrir_janela_edicao(self):
         """Abre a janela para editar o perfil"""
@@ -613,8 +560,9 @@ class JanelaPerfilUsuario(QDialog):
         janela_historico = JanelaHistoricoCompras(self.cliente)
         janela_historico.exec()
 
+
 class JanelaEditarPerfil(QDialog):
-    """Janela para editar o perfil do usuário"""
+    """Janela para editar o perfil do usuário sem foto"""
     def __init__(self, cliente):
         super().__init__()
         self.cliente = cliente
@@ -681,18 +629,6 @@ class JanelaEditarPerfil(QDialog):
         form_layout = QFormLayout(form_frame)
         form_layout.setSpacing(15)
         
-        # Widget para foto de perfil
-        foto_label = QLabel("Foto de Perfil:")
-        foto_label.setFont(QFont(FONTE_PRINCIPAL, 11, QFont.Weight.Bold))
-        self.foto_perfil = ImagemClicavel("Clique para selecionar foto de perfil")
-        self.foto_perfil.setFixedSize(150, 150)
-        self.foto_perfil.clicado.connect(self.selecionar_foto)
-        
-        # Adicionar foto em um layout horizontal centralizado
-        foto_container = QWidget()
-        foto_container_layout = QVBoxLayout(foto_container)
-        foto_container_layout.addWidget(self.foto_perfil, alignment=Qt.AlignmentFlag.AlignCenter)
-        
         # Campo Nome
         nome_label = QLabel("Nome:")
         nome_label.setFont(QFont(FONTE_PRINCIPAL, 11, QFont.Weight.Bold))
@@ -717,8 +653,6 @@ class JanelaEditarPerfil(QDialog):
         self.tipo_combo.addItems(["Sangue-Puro", "Nascido-trouxa", "Aborto"])
         form_layout.addRow(tipo_label, self.tipo_combo)
         
-        # Adicionar foto e formulário ao layout principal
-        layout.addWidget(foto_container)
         layout.addWidget(form_frame)
         
         # Layout para botões
@@ -762,47 +696,9 @@ class JanelaEditarPerfil(QDialog):
                 if index >= 0:
                     self.tipo_combo.setCurrentIndex(index)
             
-            if 'foto_perfil' in dados and dados["foto_perfil"]:
-                self.foto_perfil.caminho_imagem = dados["foto_perfil"]
-                pixmap = QPixmap(dados["foto_perfil"])
-                if not pixmap.isNull():
-                    self.foto_perfil.setPixmap(pixmap.scaled(
-                        self.foto_perfil.width(), 
-                        self.foto_perfil.height(),
-                        Qt.AspectRatioMode.KeepAspectRatio
-                    ))
-                    self.foto_perfil.setText("")
-                else:
-                    self.foto_perfil.setText("Clique para\nselecionar foto")
-            else:
-                self.foto_perfil.setText("Clique para\nselecionar foto")
-                
         except Exception as e:
             print(f"Erro ao carregar dados existentes: {str(e)}")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar dados do perfil: {str(e)}")
-    
-    def selecionar_foto(self):
-        options = QFileDialog.Option.DontUseNativeDialog
-        arquivo, _ = QFileDialog.getOpenFileName(
-            self,
-            "Selecionar Foto de Perfil",
-            "",
-            "Imagens (*.png *.jpg *.jpeg)",
-            options=options
-        )
-        if arquivo:
-            self.foto_perfil.caminho_imagem = arquivo
-            pixmap = QPixmap(arquivo)
-            if not pixmap.isNull():
-                self.foto_perfil.setPixmap(pixmap.scaled(
-                    self.foto_perfil.width(), 
-                    self.foto_perfil.height(),
-                    Qt.AspectRatioMode.KeepAspectRatio
-                ))
-                self.foto_perfil.setText("")
-            else:
-                print("Erro: imagem não carregada corretamente.")
-                QMessageBox.warning(self, "Erro", "Não foi possível carregar a imagem selecionada.")
     
     def salvar_perfil(self):
         """Salva as alterações no perfil do usuário - versão thread-safe"""
@@ -810,8 +706,7 @@ class JanelaEditarPerfil(QDialog):
             nome = self.nome_input.text()
             casa_hogwarts = self.casa_combo.currentText()
             tipo_bruxo = self.tipo_combo.currentText()
-            foto_perfil = getattr(self.foto_perfil, 'caminho_imagem', None)
-
+            
             def callback_atualizacao(resposta):        
                 def atualizar_ui():
                     if resposta and resposta.get('status') == 'sucesso':
@@ -820,14 +715,13 @@ class JanelaEditarPerfil(QDialog):
                     else:
                         QMessageBox.warning(self, "Erro", f"Erro ao atualizar o perfil: {resposta.get('mensagem', 'Tente novamente')}")
                 
-                # Usar QTimer.singleShot para garantir que a execução ocorra na thread principal
                 QTimer.singleShot(0, atualizar_ui)
             
             self.cliente.atualizar_perfil(
                 nome=nome, 
                 casa_hogwarts=casa_hogwarts, 
                 tipo_bruxo=tipo_bruxo, 
-                foto_perfil=foto_perfil,
+                foto_perfil=None,
                 callback=callback_atualizacao
             )
             
