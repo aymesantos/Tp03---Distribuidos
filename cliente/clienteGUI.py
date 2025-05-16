@@ -19,41 +19,6 @@ COR_TEXTO = "#e2c8a0"       # Texto dourado/bege
 COR_DESTAQUE = "#e2c8a0"    # Botões em dourado/bege
 
 
-class ImagemClicavel(QLabel):
-    """Widget para selecionar imagem de perfil clicável"""
-    clicado = pyqtSignal()
-    
-    def __init__(self, texto_padrao=""):
-        super().__init__()
-        self.texto_padrao = texto_padrao
-        self.caminho_imagem = ""
-        self.setFixedSize(150, 150)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setStyleSheet(f"""
-            border: 2px dashed {COR_TEXTO};
-            border-radius: 75px;
-            background-color: #152121;
-            color: {COR_TEXTO};
-        """)
-        self.setText(texto_padrao)
-        self.setWordWrap(True)
-        
-    def mousePressEvent(self, event):
-        caminho, _ = QFileDialog.getOpenFileName(self, "Selecione uma imagem", "", "Imagens (*.png *.jpg *.bmp)")
-        if caminho:
-            self.atualizar_imagem(caminho)
-            self.clicado.emit() 
-        
-    def atualizar_imagem(self, caminho):
-        if caminho and os.path.exists(caminho):
-            self.caminho_imagem = caminho
-            pixmap = QPixmap(caminho)
-            pixmap = pixmap.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            self.setPixmap(pixmap)
-        else:
-            self.caminho_imagem = None
-            self.setText(self.texto_placeholder)
-
 class ProdutoItem(QWidget):
     """Widget personalizado para exibir um produto na lista"""
     comprar_clicado = pyqtSignal(dict)
