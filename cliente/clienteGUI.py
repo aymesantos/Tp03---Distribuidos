@@ -514,6 +514,12 @@ class JanelaPerfilUsuario(QDialog):
         
         # Botões
         botoes_layout = QHBoxLayout()
+
+        # Botão Histórico de Compras
+        self.historico_vendas_btn = QPushButton("Histórico de Compras")
+        self.historico_vendas_btn.setFont(QFont(FONTE_PRINCIPAL, 11))
+        self.historico_vendas_btn.clicked.connect(self.abrir_historico_vendas)
+        botoes_layout.addWidget(self.historico_vendas_btn)
         
         # Botão Editar
         self.editar_btn = QPushButton("Editar Perfil")
@@ -603,6 +609,9 @@ class JanelaPerfilUsuario(QDialog):
         if janela_edicao.exec() == QDialog.DialogCode.Accepted:
             self.carregar_dados_usuario()
 
+    def abrir_historico_vendas(self):
+        janela_historico = JanelaHistoricoCompras(self.cliente)
+        janela_historico.exec()
 
 class JanelaEditarPerfil(QDialog):
     """Janela para editar o perfil do usuário"""
@@ -1665,73 +1674,78 @@ class JanelaMinhaLoja(QDialog):
     
     def ver_historico(self):
         """Abre janela com histórico de vendas"""
-        dialog = JanelaHistorico(self.cliente)
+        dialog = JanelaHistoricoVendas(self.cliente)
         dialog.exec()
 
-
-class JanelaHistorico(QDialog):
-    """Janela para exibir histórico de compras e vendas"""
+class JanelaHistoricoCompras(QDialog):
+    """Janela para exibir histórico de compras do usuário"""
     def __init__(self, cliente):
         super().__init__()
         self.cliente = cliente
         self.initUI()
-        
+    
     def initUI(self):
-        self.setWindowTitle("Histórico de Transações")
+        self.setWindowTitle("Histórico de Compras")
         self.setFixedSize(800, 600)
-        
+
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QComboBox {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
+
         layout = QVBoxLayout()
-        
-        # Título
-        titulo = QLabel("Histórico de Compras e Vendas")
+
+        titulo = QLabel("Histórico de Compras")
         titulo.setFont(QFont(FONTE_PRINCIPAL, 16, QFont.Weight.Bold))
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(titulo)
-        
-        tabs = QStackedWidget()
-        
-        btn_layout = QHBoxLayout()
-        
-        compras_btn = QPushButton("Minhas Compras")
-        compras_btn.clicked.connect(lambda: tabs.setCurrentIndex(0))
-        
-        vendas_btn = QPushButton("Minhas Vendas")
-        vendas_btn.clicked.connect(lambda: tabs.setCurrentIndex(1))
-        
-        btn_layout.addWidget(compras_btn)
-        btn_layout.addWidget(vendas_btn)
-        
-        layout.addLayout(btn_layout)
-        
-        # Tab de compras
-        compras_widget = QWidget()
-        compras_layout = QVBoxLayout(compras_widget)
-        self.listar_compras(compras_layout)
-        tabs.addWidget(compras_widget)
-        
-        # Tab de vendas
-        vendas_widget = QWidget()
-        vendas_layout = QVBoxLayout(vendas_widget)
-        self.listar_vendas(vendas_layout)
-        tabs.addWidget(vendas_widget)
-        
-        layout.addWidget(tabs)
-        
-        # Botão fechar
+
+        self.listar_compras(layout)
+
         fechar_btn = QPushButton("Fechar")
         fechar_btn.clicked.connect(self.accept)
         layout.addWidget(fechar_btn)
-        
+
         self.setLayout(layout)
-    
+
     def listar_compras(self, layout):
-        """Lista as compras do usuário"""
-        # Buscar compras do servidor
         resposta = self.cliente.historico_compras()
-        
         if resposta and resposta.get('status') == 'sucesso':
             compras = resposta.get('compras', [])
-            
             if not compras:
                 info_label = QLabel("Você ainda não realizou nenhuma compra.")
                 info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1742,16 +1756,16 @@ class JanelaHistorico(QDialog):
                 scroll.setWidgetResizable(True)
                 scroll_widget = QWidget()
                 compras_layout = QVBoxLayout(scroll_widget)
-                
+
                 for compra in compras:
                     item_widget = self.criar_item_transacao(compra, tipo='compra')
                     compras_layout.addWidget(item_widget)
-                    
+
                     linha = QFrame()
                     linha.setFrameShape(QFrame.Shape.HLine)
                     linha.setFrameShadow(QFrame.Shadow.Sunken)
                     compras_layout.addWidget(linha)
-                
+
                 scroll.setWidget(scroll_widget)
                 layout.addWidget(scroll)
         else:
@@ -1759,50 +1773,13 @@ class JanelaHistorico(QDialog):
             erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             erro_label.setStyleSheet("font-size: 14px; color: red; padding: 20px;")
             layout.addWidget(erro_label)
-    
-    def listar_vendas(self, layout):
-        """Lista as vendas do usuário"""
-        resposta = self.cliente.historico_vendas()
-        
-        if resposta and resposta.get('status') == 'sucesso':
-            vendas = resposta.get('vendas', [])
-            
-            if not vendas:
-                info_label = QLabel("Você ainda não realizou nenhuma venda.")
-                info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                info_label.setStyleSheet("font-size: 14px; padding: 20px;")
-                layout.addWidget(info_label)
-            else:
-                scroll = QScrollArea()
-                scroll.setWidgetResizable(True)
-                scroll_widget = QWidget()
-                vendas_layout = QVBoxLayout(scroll_widget)
-                
-                for venda in vendas:
-                    item_widget = self.criar_item_transacao(venda, tipo='venda')
-                    vendas_layout.addWidget(item_widget)
-                    
-                    linha = QFrame()
-                    linha.setFrameShape(QFrame.Shape.HLine)
-                    linha.setFrameShadow(QFrame.Shadow.Sunken)
-                    vendas_layout.addWidget(linha)
-                
-                scroll.setWidget(scroll_widget)
-                layout.addWidget(scroll)
-        else:
-            erro_label = QLabel("Erro ao carregar histórico de vendas.")
-            erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            erro_label.setStyleSheet("font-size: 14px; color: red; padding: 20px;")
-            layout.addWidget(erro_label)
 
     def criar_item_transacao(self, transacao, tipo):
-        """Cria um widget para exibir uma transação de compra ou venda com imagem"""
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setSpacing(10)
 
-        # === IMAGEM DO PRODUTO ===
-        imagem_path = transacao.get('imagem')  # caminho para a imagem, ex: 'imagens/varinha.png'
+        imagem_path = transacao.get('imagem')  # caminho para imagem
         if imagem_path and os.path.exists(imagem_path):
             pixmap = QPixmap(imagem_path)
             pixmap = pixmap.scaledToWidth(80)
@@ -1816,17 +1793,145 @@ class JanelaHistorico(QDialog):
 
         layout.addWidget(imagem_label)
 
-        # === DETALHES DA TRANSAÇÃO ===
         produto = transacao.get('produto', 'Produto desconhecido')
         valor = transacao.get('valor', 0.0)
         data = transacao.get('data', 'Data não informada')
         usuario = transacao.get('usuario', 'Desconhecido')
 
-        if tipo == 'compra':
-            descricao = f"Você comprou '{produto}' de {usuario} por {valor:.2f} galeões em {data}."
-        else:
-            descricao = f"Você vendeu '{produto}' para {usuario} por {valor:.2f} galeões em {data}."
+        descricao = f"Você comprou '{produto}' de {usuario} por {valor:.2f} galeões em {data}."
+        label = QLabel(descricao)
+        label.setWordWrap(True)
+        label.setStyleSheet("font-size: 13px;")
 
+        texto_layout = QVBoxLayout()
+        texto_layout.addWidget(label)
+        layout.addLayout(texto_layout)
+
+        return widget
+
+
+class JanelaHistoricoVendas(QDialog):
+    """Janela para exibir histórico de vendas do usuário (loja)"""
+    def __init__(self, cliente):
+        super().__init__()
+        self.cliente = cliente
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle("Histórico de Vendas")
+        self.setFixedSize(800, 600)
+
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QComboBox {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
+
+        layout = QVBoxLayout()
+
+        titulo = QLabel("Histórico de Vendas")
+        titulo.setFont(QFont(FONTE_PRINCIPAL, 16, QFont.Weight.Bold))
+        titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(titulo)
+
+        self.listar_vendas(layout)
+
+        fechar_btn = QPushButton("Fechar")
+        fechar_btn.clicked.connect(self.accept)
+        layout.addWidget(fechar_btn)
+
+        self.setLayout(layout)
+
+    def listar_vendas(self, layout):
+        resposta = self.cliente.historico_vendas()
+        if resposta and resposta.get('status') == 'sucesso':
+            vendas = resposta.get('vendas', [])
+            if not vendas:
+                info_label = QLabel("Você ainda não realizou nenhuma venda.")
+                info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                info_label.setStyleSheet("font-size: 14px; padding: 20px;")
+                layout.addWidget(info_label)
+            else:
+                scroll = QScrollArea()
+                scroll.setWidgetResizable(True)
+                scroll_widget = QWidget()
+                vendas_layout = QVBoxLayout(scroll_widget)
+
+                for venda in vendas:
+                    item_widget = self.criar_item_transacao(venda, tipo='venda')
+                    vendas_layout.addWidget(item_widget)
+
+                    linha = QFrame()
+                    linha.setFrameShape(QFrame.Shape.HLine)
+                    linha.setFrameShadow(QFrame.Shadow.Sunken)
+                    vendas_layout.addWidget(linha)
+
+                scroll.setWidget(scroll_widget)
+                layout.addWidget(scroll)
+        else:
+            erro_label = QLabel("Erro ao carregar histórico de vendas.")
+            erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            erro_label.setStyleSheet("font-size: 14px; color: red; padding: 20px;")
+            layout.addWidget(erro_label)
+
+    def criar_item_transacao(self, transacao, tipo):
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setSpacing(10)
+
+        imagem_path = transacao.get('imagem') 
+        if imagem_path and os.path.exists(imagem_path):
+            pixmap = QPixmap(imagem_path)
+            pixmap = pixmap.scaledToWidth(80)
+            imagem_label = QLabel()
+            imagem_label.setPixmap(pixmap)
+        else:
+            imagem_label = QLabel("Sem imagem")
+            imagem_label.setFixedSize(80, 80)
+            imagem_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            imagem_label.setStyleSheet("border: 1px solid gray; font-size: 10px;")
+
+        layout.addWidget(imagem_label)
+
+        produto = transacao.get('produto', 'Produto desconhecido')
+        valor = transacao.get('valor', 0.0)
+        data = transacao.get('data', 'Data não informada')
+        usuario = transacao.get('usuario', 'Desconhecido')
+
+        descricao = f"Você vendeu '{produto}' para {usuario} por {valor:.2f} galeões em {data}."
         label = QLabel(descricao)
         label.setWordWrap(True)
         label.setStyleSheet("font-size: 13px;")

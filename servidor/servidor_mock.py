@@ -18,7 +18,7 @@ usuarios = {
 produtos_disponiveis = [
     {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Varinhas", "loja_id": 1, "descricao": "Feita com pena de fênix"},
     {"id": 2, "nome": "Poção de Cura", "preco": 50.00, "categoria": "Poções", "loja_id": 1, "descricao": "Recupera vitalidade"},
-    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Feitiçaria", "loja_id": 1, "descricao": "Feitiços antigos"}
+    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Livros", "loja_id": 1, "descricao": "Feitiços antigos"}
 ]
 
 
@@ -323,14 +323,25 @@ def processar_mensagem(mensagem):
     elif acao == 'adicionar_produto_carrinho':
         email = mensagem.get('email')
         produto_id = mensagem.get('produto_id')
+
         if email not in carrinho:
             carrinho[email] = []
+
         produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
+
         if produto:
-            carrinho[email].append(produto)
-            return {'status': 'sucesso', 'produto_adicionado': produto}
+            loja_id = produto.get('loja_id')
+            email_vendedor = lojas.get(loja_id, {}).get('proprietario', 'desconhecido@exemplo.com')
+
+            produto_com_vendedor = produto.copy()
+            produto_com_vendedor['vendedor'] = email_vendedor
+
+            carrinho[email].append(produto_com_vendedor)
+
+            return {'status': 'sucesso', 'produto_adicionado': produto_com_vendedor}
         else:
             return {'erro': 'produto_nao_encontrado'}
+
 
     elif acao == 'visualizar_carrinho':
         email = mensagem.get('email')
@@ -339,12 +350,13 @@ def processar_mensagem(mensagem):
 
     elif acao == 'finalizar_compra':
         email = mensagem.get('email')
-        metodo_pagamento = 'galeao'  
+        metodo_pagamento = 'galeao'
+
         if not email or email not in carrinho or not carrinho[email]:
             return {'erro': 'carrinho_vazio'}
 
         itens = carrinho[email]
-        carrinho[email] = [] 
+        carrinho[email] = []
 
         data_hoje = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
         for item in itens:
@@ -355,27 +367,24 @@ def processar_mensagem(mensagem):
             nome_vendedor = usuarios.get(email_vendedor, {}).get('nome', 'Desconhecido')
             nome_comprador = usuarios.get(email, {}).get('nome', 'Desconhecido')
 
-            # Compra (para o cliente)
             compra = {
                 'produto': nome_produto,
                 'valor': preco,
                 'data': data_hoje,
-                'usuario': nome_vendedor,  # Mostra nome do vendedor
+                'usuario': nome_vendedor, 
                 'metodo_pagamento': metodo_pagamento
             }
             historico_compras.setdefault(email, []).append(compra)
 
-            # Venda (para o vendedor)
             venda = {
                 'produto': nome_produto,
                 'valor': preco,
                 'data': data_hoje,
-                'usuario': nome_comprador,  # Mostra nome do comprador
+                'usuario': nome_comprador, 
                 'metodo_pagamento': metodo_pagamento
             }
             historico_vendas.setdefault(email_vendedor, []).append(venda)
 
-            # Adiciona à lista unificada de transações
             transacao = {
                 'produto': nome_produto,
                 'quantidade': 1,
@@ -387,9 +396,6 @@ def processar_mensagem(mensagem):
             transacoes.append(transacao)
 
         return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
-
-
-
 
     
     elif acao == 'listar_produtos':
@@ -423,12 +429,15 @@ def processar_mensagem(mensagem):
         compras_usuario = []
         for transacao in transacoes:
             if transacao.get('comprador_email') == email:
+                vendedor_email = transacao.get('vendedor_email', None)
+                nome_vendedor = usuarios.get(vendedor_email, {}).get('nome', 'Desconhecido')
+
                 compras_usuario.append({
                     'produto': transacao['produto'],
                     'quantidade': transacao['quantidade'],
-                    'valor': transacao['total'],   # use 'valor' para combinar com cliente
+                    'valor': transacao['total'],
                     'data': transacao['data'],
-                    'usuario': transacao.get('vendedor_email', 'Desconhecido')
+                    'usuario': nome_vendedor 
                 })
 
         return {'status': 'sucesso', 'compras': compras_usuario}
@@ -439,12 +448,15 @@ def processar_mensagem(mensagem):
         vendas_usuario = []
         for transacao in transacoes:
             if transacao.get('vendedor_email') == email:
+                comprador_email = transacao.get('comprador_email', None)
+                nome_comprador = usuarios.get(comprador_email, {}).get('nome', 'Desconhecido')
+
                 vendas_usuario.append({
                     'produto': transacao['produto'],
                     'quantidade': transacao['quantidade'],
-                    'valor': transacao['total'],  # use 'valor' para combinar com cliente
+                    'valor': transacao['total'],
                     'data': transacao['data'],
-                    'usuario': transacao.get('comprador_email', 'Desconhecido')
+                    'usuario': nome_comprador 
                 })
 
         return {'status': 'sucesso', 'vendas': vendas_usuario}
