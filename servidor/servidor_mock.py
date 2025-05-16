@@ -117,6 +117,32 @@ def realizar_login(email, senha):
             return {'erro': 'senha_incorreta'}
     else:
         return {'erro': 'usuario_nao_encontrado'}
+    
+# Função de login no servidor
+def realizar_login(email, senha):
+    
+    # Verifica se o usuário existe
+    if email in usuarios:
+        if usuarios[email]['senha'] == senha:
+            # Gerar um token de autenticação simples (poderia ser mais robusto, como JWT)
+            token = gerar_token(email)  
+            return {'status': 'sucesso', 'token': token, 'usuario': usuarios[email]}
+        else:
+            return {'erro': 'senha_incorreta'}
+    else:
+        return {'erro': 'usuario_nao_encontrado'}
+
+# Função para gerar um token simples
+def gerar_token(email):
+    return f"token_{email}"
+
+# Função de validação de token
+def validar_token(token):
+    # Verifica se o token corresponde a algum usuário
+    for usuario_email, dados in usuarios.items():
+        if f"token_{usuario_email}" == token:
+            return usuario_email  # Retorna o email do usuário se o token for válido
+    return None  # Retorna None se o token for inválido
 
 # Função de cadastro
 def realizar_cadastro(nome, casa, email, senha, tipo_bruxo):
@@ -128,6 +154,11 @@ def realizar_cadastro(nome, casa, email, senha, tipo_bruxo):
 
 # Função de adicionar produto ao carrinho
 def adicionar_produto_carrinho(email, produto_id):
+    
+    # Verifique se o email fornecido corresponde ao token validado
+    if email not in usuarios:
+        return {'erro': 'usuario_nao_encontrado'}
+    
     if email not in carrinho:
         carrinho[email] = []
     
@@ -310,12 +341,32 @@ def configurar_promocao(email, produto_id, desconto):
     else:
         return {'erro': 'produto_nao_encontrado'}
 
+# Função de atualizar perfil do usuário
+def atualizar_perfil(email, nome, casa_hogwarts, tipo_bruxo):
+    # Verifique se o email fornecido corresponde ao token validado
+    if email not in usuarios:
+        return {'erro': 'usuario_nao_encontrado'}
+
+    usuarios[email].update({
+        'nome': nome,
+        'casa_hogwarts': casa_hogwarts,
+        'tipo_bruxo': tipo_bruxo
+    })
+
+    return {'status': 'perfil_atualizado'}
+
 
 # PROCESSO DE MENSAGENS
 # Função principal de processamento de mensagens
 def processar_mensagem(mensagem):
+    
     acao = mensagem.get('acao')
-
+    token = mensagem.get('token')
+    
+    # login e cadastro não precisam de token
+    if acao not in ['login', 'cadastro'] and not validar_token(token):
+        return {'erro': 'token_invalido'}
+    
     # Ação de login
     if acao == 'login':
         email = mensagem.get('email')
