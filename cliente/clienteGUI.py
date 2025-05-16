@@ -375,14 +375,25 @@ class JanelaCadastro(QWidget):
 
         if resposta:
             if resposta.get('status') == 'sucesso':
-                QMessageBox.information(self, 'Sucesso', 'Cadastro realizado com sucesso!')
-                self.voltar_login()
+                # Cadastro deu certo, agora tenta login automático
+                resposta_login = self.cliente.login(email, senha)
+                if resposta_login and resposta_login.get('status') == 'sucesso':
+                    # Atualiza dados do cliente com usuário logado, token e email
+                    self.cliente.usuario_logado = resposta_login.get('usuario')
+                    self.cliente.token = resposta_login.get('token')
+                    self.cliente.email = email
+
+                    QMessageBox.information(self, 'Sucesso', 'Cadastro e login realizados com sucesso!')
+                    self.voltar_login()
+                else:
+                    QMessageBox.warning(self, 'Erro', 'Cadastro realizado, mas falha no login automático. Tente fazer login manualmente.')
             elif resposta.get('erro') == 'email_ja_cadastrado':
                 QMessageBox.warning(self, 'Erro', 'Email já cadastrado.')
             else:
                 QMessageBox.warning(self, 'Erro', f'Erro no cadastro: {resposta.get("mensagem", "Tente novamente!")}')
         else:
             QMessageBox.warning(self, 'Erro', 'Erro de conexão com o servidor.')
+
 
 class JanelaPerfilUsuario(QDialog):
     """Janela para visualizar o perfil do usuário"""
@@ -918,7 +929,7 @@ class JanelaCriarProduto(QDialog):
         super().__init__()
         self.cliente = cliente
         self.produto_dados = produto_dados  # Se None, criação; se tem dados, edição
-        self.caminhos_imagens = []
+        self.caminho_imagem = None
         self.initUI()
         
     def initUI(self):
@@ -934,14 +945,14 @@ class JanelaCriarProduto(QDialog):
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(titulo)
         
-        # Título do produto
+        # Nome do produto
         layout.addWidget(QLabel("Título do Produto:"))
-        self.titulo_input = QLineEdit()
+        self.nome_input = QLineEdit()
         if self.produto_dados:
-            self.titulo_input.setText(self.produto_dados.get('nome', ''))
-        layout.addWidget(self.titulo_input)
+            self.nome_input.setText(self.produto_dados.get('nome', ''))
+        layout.addWidget(self.nome_input)
         
-        # Descrição do produto
+        # Descrição
         layout.addWidget(QLabel("Descrição:"))
         self.descricao_input = QTextEdit()
         if self.produto_dados:
@@ -949,7 +960,7 @@ class JanelaCriarProduto(QDialog):
         self.descricao_input.setMaximumHeight(100)
         layout.addWidget(self.descricao_input)
         
-        # Preço do produto
+        # Preço
         layout.addWidget(QLabel("Preço (R$):"))
         self.preco_input = QDoubleSpinBox()
         self.preco_input.setRange(0.01, 99999.99)
@@ -960,7 +971,7 @@ class JanelaCriarProduto(QDialog):
             self.preco_input.setValue(1.00)
         layout.addWidget(self.preco_input)
         
-        # Categoria do produto
+        # Categoria
         layout.addWidget(QLabel("Categoria:"))
         self.categoria_input = QComboBox()
         categorias = ["Livros", "Varinhas", "Vestes", "Animais", "Poções", "Outros"]
@@ -970,19 +981,18 @@ class JanelaCriarProduto(QDialog):
             if index >= 0:
                 self.categoria_input.setCurrentIndex(index)
         layout.addWidget(self.categoria_input)
-        
-        # Imagens do produto
-        layout.addWidget(QLabel("Imagens do Produto:"))
-        self.btn_adicionar_imagem = QPushButton("Adicionar Imagem")
-        self.btn_adicionar_imagem.clicked.connect(self.adicionar_imagem)
+
+        # Imagem
+        layout.addWidget(QLabel("Imagem do Produto:"))
+        self.btn_adicionar_imagem = QPushButton("Selecionar Imagem")
+        self.btn_adicionar_imagem.clicked.connect(self.selecionar_imagem)
         layout.addWidget(self.btn_adicionar_imagem)
+
+        self.label_imagem = QLabel("Nenhuma imagem selecionada")
+        self.label_imagem.setStyleSheet("font-style: italic; color: gray;")
+        layout.addWidget(self.label_imagem)
         
-        # Lista de imagens selecionadas
-        self.lista_imagens = QListWidget()
-        self.lista_imagens.setMaximumHeight(100)
-        layout.addWidget(self.lista_imagens)
-        
-        # Status do produto (apenas para edição)
+        # Status (somente para edição)
         if self.produto_dados:
             layout.addWidget(QLabel("Status do Produto:"))
             self.status_input = QComboBox()
@@ -998,33 +1008,31 @@ class JanelaCriarProduto(QDialog):
         salvar_btn.clicked.connect(self.salvar_produto)
         cancelar_btn = QPushButton("Cancelar")
         cancelar_btn.clicked.connect(self.reject)
-        
         botoes_layout.addWidget(salvar_btn)
         botoes_layout.addWidget(cancelar_btn)
         layout.addLayout(botoes_layout)
         
         self.setLayout(layout)
-    
-    def adicionar_imagem(self):
-        options = QFileDialog.Option()
-        caminhos, _ = QFileDialog.getOpenFileNames(
-            self, "Selecionar Imagens", "", 
-            "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
+
+    def selecionar_imagem(self):
+        caminho, _ = QFileDialog.getOpenFileName(
+            self, "Selecionar Imagem", "", 
+            "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)"
         )
-        
-        if caminhos:
-            for caminho in caminhos:
-                if caminho not in self.caminhos_imagens:
-                    self.caminhos_imagens.append(caminho)
-                    self.lista_imagens.addItem(os.path.basename(caminho))
-    
+        if caminho:
+            self.caminho_imagem = caminho
+            self.label_imagem.setText(os.path.basename(caminho))
+        else:
+            self.caminho_imagem = None
+            self.label_imagem.setText("Nenhuma imagem selecionada")
+
     def salvar_produto(self):
-        titulo = self.titulo_input.text().strip()
+        nome = self.nome_input.text().strip()
         descricao = self.descricao_input.toPlainText().strip()
         preco = self.preco_input.value()
         categoria = self.categoria_input.currentText()
         
-        if not titulo or not descricao:
+        if not nome or not descricao:
             QMessageBox.warning(self, "Erro", "O título e a descrição são obrigatórios.")
             return
         
@@ -1032,29 +1040,28 @@ class JanelaCriarProduto(QDialog):
             QMessageBox.warning(self, "Erro", "O preço deve ser maior que zero.")
             return
         
-        if not self.caminhos_imagens and not self.produto_dados:
-            QMessageBox.warning(self, "Erro", "Adicione pelo menos uma imagem ao produto.")
+        if not self.caminho_imagem and not self.produto_dados:
+            QMessageBox.warning(self, "Erro", "Adicione uma imagem ao produto.")
             return
-        
-        # Se tem dados do produto, é edição (RF014/RF017), senão é criação (RF013)
+
         if self.produto_dados:
-            status = self.status_input.currentText() if hasattr(self, 'status_input') else 'ativo'
+            status = self.status_input.currentText()
             resposta = self.cliente.editar_produto(
                 produto_id=self.produto_dados.get('id'),
-                titulo=titulo,
+                nome=nome,
                 descricao=descricao,
                 preco=preco,
                 categoria=categoria,
                 status=status,
-                caminhos_imagens=self.caminhos_imagens if self.caminhos_imagens else None
+                caminho_imagem=self.caminho_imagem
             )
         else:
             resposta = self.cliente.criar_produto(
-                titulo=titulo,
+                nome=nome,
                 descricao=descricao,
                 preco=preco,
                 categoria=categoria,
-                caminhos_imagens=self.caminhos_imagens
+                caminho_imagem=self.caminho_imagem
             )
         
         if resposta and resposta.get('status') == 'sucesso':
@@ -1062,6 +1069,7 @@ class JanelaCriarProduto(QDialog):
             self.accept()
         else:
             QMessageBox.warning(self, "Erro", f"Erro ao {'atualizar' if self.produto_dados else 'criar'} o produto: {resposta.get('mensagem', 'Tente novamente')}")
+
 
 
 class JanelaMarketplace(QWidget):
@@ -1235,18 +1243,21 @@ class JanelaMarketplace(QWidget):
     
     def adicionar_ao_carrinho(self, produto):
         """Adiciona um produto ao carrinho de compras"""
-        # Verificar se o produto já está no carrinho
+        produto_id = produto['id']
+
         for item in self.carrinho:
-            if item['id'] == produto['id']:
+            if item['id'] == produto_id:
                 QMessageBox.information(self, "Aviso", "Este produto já está no seu carrinho.")
                 return
-        
-        # Adicionar ao carrinho
-        self.carrinho.append(produto)
-        QMessageBox.information(self, "Sucesso", f"'{produto['nome']}' adicionado ao carrinho!")
-        
-        # Atualizar contador do botão de carrinho
-        self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
+
+        resposta = self.cliente.adicionar_ao_carrinho(produto_id)
+        if resposta and resposta.get('status') == 'sucesso':
+            self.carrinho.append(produto)
+            QMessageBox.information(self, "Sucesso", f"'{produto['nome']}' adicionado ao carrinho!")
+            self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
+        else:
+            QMessageBox.warning(self, "Erro", "Não foi possível adicionar o produto ao carrinho.")
+
     
     def abrir_carrinho(self):
         """Abre a janela do carrinho de compras"""
@@ -1489,9 +1500,8 @@ class JanelaCarrinho(QDialog):
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
-            # Enviar requisição para o servidor
             produtos_ids = [p['id'] for p in self.carrinho]
-            resposta = self.cliente.realizar_compra()
+            resposta = self.cliente.finalizar_compra()
             
             if resposta and resposta.get('status') == 'sucesso':
                 QMessageBox.information(self, "Sucesso", "Compra realizada com sucesso!")
@@ -1596,14 +1606,12 @@ class JanelaMinhaLoja(QDialog):
     
     def carregar_produtos(self):
         """Carrega os produtos da loja do usuário"""
-        # Limpar layout existente
         while self.produtos_layout.count():
             item = self.produtos_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-        
-        # Buscar produtos no servidor
+
         resposta = self.cliente.listar_meus_produtos()
         
         if resposta and resposta.get('status') == 'sucesso':
@@ -1619,8 +1627,7 @@ class JanelaMinhaLoja(QDialog):
                     produto_widget = ProdutoItem(produto, modo='editar')
                     produto_widget.editar_clicado.connect(self.editar_produto)
                     self.produtos_layout.addWidget(produto_widget)
-                    
-                    # Linha separadora
+
                     linha = QFrame()
                     linha.setFrameShape(QFrame.Shape.HLine)
                     linha.setFrameShadow(QFrame.Shadow.Sunken)
@@ -1681,10 +1688,8 @@ class JanelaHistorico(QDialog):
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(titulo)
         
-        # Tabs para separar compras e vendas
         tabs = QStackedWidget()
         
-        # Botões para navegar entre as tabs
         btn_layout = QHBoxLayout()
         
         compras_btn = QPushButton("Minhas Compras")
@@ -1733,7 +1738,6 @@ class JanelaHistorico(QDialog):
                 info_label.setStyleSheet("font-size: 14px; padding: 20px;")
                 layout.addWidget(info_label)
             else:
-                # Criar scroll area para as compras
                 scroll = QScrollArea()
                 scroll.setWidgetResizable(True)
                 scroll_widget = QWidget()
@@ -1743,7 +1747,6 @@ class JanelaHistorico(QDialog):
                     item_widget = self.criar_item_transacao(compra, tipo='compra')
                     compras_layout.addWidget(item_widget)
                     
-                    # Linha separadora
                     linha = QFrame()
                     linha.setFrameShape(QFrame.Shape.HLine)
                     linha.setFrameShadow(QFrame.Shadow.Sunken)
@@ -1759,7 +1762,6 @@ class JanelaHistorico(QDialog):
     
     def listar_vendas(self, layout):
         """Lista as vendas do usuário"""
-        # Buscar vendas do servidor
         resposta = self.cliente.historico_vendas()
         
         if resposta and resposta.get('status') == 'sucesso':
@@ -1771,7 +1773,6 @@ class JanelaHistorico(QDialog):
                 info_label.setStyleSheet("font-size: 14px; padding: 20px;")
                 layout.addWidget(info_label)
             else:
-                # Criar scroll area para as vendas
                 scroll = QScrollArea()
                 scroll.setWidgetResizable(True)
                 scroll_widget = QWidget()
@@ -1781,7 +1782,6 @@ class JanelaHistorico(QDialog):
                     item_widget = self.criar_item_transacao(venda, tipo='venda')
                     vendas_layout.addWidget(item_widget)
                     
-                    # Linha separadora
                     linha = QFrame()
                     linha.setFrameShape(QFrame.Shape.HLine)
                     linha.setFrameShadow(QFrame.Shadow.Sunken)
@@ -1831,7 +1831,6 @@ class JanelaHistorico(QDialog):
         label.setWordWrap(True)
         label.setStyleSheet("font-size: 13px;")
 
-        # Layout vertical para o texto
         texto_layout = QVBoxLayout()
         texto_layout.addWidget(label)
         layout.addLayout(texto_layout)
@@ -1840,7 +1839,7 @@ class JanelaHistorico(QDialog):
     
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    janela_login = JanelaLogin()  # A primeira tela que será aberta é o login
+    janela_login = JanelaLogin() 
     sys.exit(app.exec())
 
     

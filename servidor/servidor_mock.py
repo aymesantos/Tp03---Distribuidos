@@ -2,6 +2,7 @@ import socket
 import json
 import os
 import base64
+import datetime
 
 # Mock de dados
 usuarios = {
@@ -15,7 +16,7 @@ usuarios = {
 }
 
 produtos_disponiveis = [
-    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Feitiçaria", "loja_id": 1, "descricao": "Feita com pena de fênix"},
+    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Varinhas", "loja_id": 1, "descricao": "Feita com pena de fênix"},
     {"id": 2, "nome": "Poção de Cura", "preco": 50.00, "categoria": "Poções", "loja_id": 1, "descricao": "Recupera vitalidade"},
     {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Feitiçaria", "loja_id": 1, "descricao": "Feitiços antigos"}
 ]
@@ -35,6 +36,13 @@ lojas = {
         "produtos": produtos_disponiveis
     }
 }
+
+# Atualiza os produtos para incluir o campo 'vendedor' com base no proprietário da loja
+for loja in lojas.values():
+    email_vendedor = loja['proprietario']
+    for produto in loja['produtos']:
+        produto['vendedor'] = email_vendedor
+
 
 # Gerador de IDs
 proximo_id_produto = 4
@@ -328,6 +336,7 @@ def processar_mensagem(mensagem):
         email = mensagem.get('email')
         return {'status': 'sucesso', 'carrinho': carrinho.get(email, [])}
 
+
     elif acao == 'finalizar_compra':
         email = mensagem.get('email')
         metodo_pagamento = 'galeao'  
@@ -336,22 +345,51 @@ def processar_mensagem(mensagem):
 
         itens = carrinho[email]
         carrinho[email] = [] 
-        compra = {
-            'produtos': itens,
-            'metodo_pagamento': metodo_pagamento
-        }
-        historico_compras.setdefault(email, []).append(compra)
+
+        data_hoje = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
         for item in itens:
-            vendedor = item.get('vendedor')
-            if vendedor:
-                venda = {
-                    'produto': item,
-                    'comprador': email,
-                    'metodo_pagamento': metodo_pagamento
-                }
-                historico_vendas.setdefault(vendedor, []).append(venda)
+            nome_produto = item.get('nome', 'Produto desconhecido')
+            preco = item.get('preco', 0.0)
+            email_vendedor = item.get('vendedor', 'desconhecido@exemplo.com')
+
+            nome_vendedor = usuarios.get(email_vendedor, {}).get('nome', 'Desconhecido')
+            nome_comprador = usuarios.get(email, {}).get('nome', 'Desconhecido')
+
+            # Compra (para o cliente)
+            compra = {
+                'produto': nome_produto,
+                'valor': preco,
+                'data': data_hoje,
+                'usuario': nome_vendedor,  # Mostra nome do vendedor
+                'metodo_pagamento': metodo_pagamento
+            }
+            historico_compras.setdefault(email, []).append(compra)
+
+            # Venda (para o vendedor)
+            venda = {
+                'produto': nome_produto,
+                'valor': preco,
+                'data': data_hoje,
+                'usuario': nome_comprador,  # Mostra nome do comprador
+                'metodo_pagamento': metodo_pagamento
+            }
+            historico_vendas.setdefault(email_vendedor, []).append(venda)
+
+            # Adiciona à lista unificada de transações
+            transacao = {
+                'produto': nome_produto,
+                'quantidade': 1,
+                'total': preco,
+                'data': data_hoje,
+                'comprador_email': email,
+                'vendedor_email': email_vendedor
+            }
+            transacoes.append(transacao)
 
         return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
+
+
+
 
     
     elif acao == 'listar_produtos':
@@ -388,10 +426,11 @@ def processar_mensagem(mensagem):
                 compras_usuario.append({
                     'produto': transacao['produto'],
                     'quantidade': transacao['quantidade'],
-                    'total': transacao['total'],
-                    'data': transacao['data']
+                    'valor': transacao['total'],   # use 'valor' para combinar com cliente
+                    'data': transacao['data'],
+                    'usuario': transacao.get('vendedor_email', 'Desconhecido')
                 })
-        
+
         return {'status': 'sucesso', 'compras': compras_usuario}
 
     elif acao == 'historico_vendas':
@@ -403,11 +442,13 @@ def processar_mensagem(mensagem):
                 vendas_usuario.append({
                     'produto': transacao['produto'],
                     'quantidade': transacao['quantidade'],
-                    'total': transacao['total'],
-                    'data': transacao['data']
+                    'valor': transacao['total'],  # use 'valor' para combinar com cliente
+                    'data': transacao['data'],
+                    'usuario': transacao.get('comprador_email', 'Desconhecido')
                 })
-        
+
         return {'status': 'sucesso', 'vendas': vendas_usuario}
+
 
 
 

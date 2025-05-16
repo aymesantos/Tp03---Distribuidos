@@ -371,9 +371,9 @@ class Cliente:
             return operacao_criar_produto(nome, descricao, preco, categoria, caminho_imagem)
 
 
-    def editar_produto(self, id_produto, nome, preco, categoria, descricao, caminho_imagem=None, callback=None):
+    def editar_produto(self, produto_id, nome,descricao, preco, categoria, status, caminho_imagem=None, callback=None):
         """Edita um produto existente, com imagem opcional"""
-        def operacao_editar_produto(id_produto, nome, preco, categoria, descricao, caminho_imagem):
+        def operacao_editar_produto(produto_id, nome,descricao, preco, categoria,status, caminho_imagem):
             imagem_base64 = None
             if caminho_imagem:
                 try:
@@ -384,25 +384,27 @@ class Cliente:
 
             mensagem = {
                 'acao': 'editar_produto',
-                'produto_id': id_produto,
+                'produto_id': produto_id,
                 'nome': nome,
+                'descricao': descricao,
                 'preco': preco,
                 'categoria': categoria,
-                'descricao': descricao,
+                'status': status,
                 'imagem_base64': imagem_base64
             }
             return self.enviar_mensagem(mensagem)
 
         if callback:
             return self.executar_operacao(operacao_editar_produto, callback,
-                                        id_produto=id_produto,
+                                        produto_id=produto_id,
                                         nome=nome,
+                                        descricao=descricao,
                                         preco=preco,
                                         categoria=categoria,
-                                        descricao=descricao,
+                                        status=status,
                                         caminho_imagem=caminho_imagem)
         else:
-            return operacao_editar_produto(id_produto, nome, preco, categoria, descricao, caminho_imagem)
+            return operacao_editar_produto(produto_id, nome, descricao, preco, categoria, status, caminho_imagem)
 
     
     def listar_produtos(self, filtros=None, callback=None):
@@ -442,11 +444,12 @@ class Cliente:
     # GERENCIAMENTO DE CARRINHO
     
     def adicionar_ao_carrinho(self, id_produto, quantidade=1, callback=None):
-        """Adiciona um produto ao carrinho (RF016)"""
+        """Adiciona um produto ao carrinho"""
         def operacao_adicionar_carrinho(id_produto, quantidade):
             mensagem = {
-                'acao': 'adicionar_ao_carrinho',
-                'id_produto': id_produto,
+                'acao': 'adicionar_produto_carrinho',  
+                'email': self.usuario_logado['email'], 
+                'produto_id': id_produto,
                 'quantidade': quantidade
             }
             return self.enviar_mensagem(mensagem)
@@ -456,6 +459,7 @@ class Cliente:
                                         id_produto=id_produto, quantidade=quantidade)
         else:
             return operacao_adicionar_carrinho(id_produto, quantidade)
+
     
     def remover_do_carrinho(self, id_produto, callback=None):
         """Remove um produto do carrinho"""
@@ -488,7 +492,7 @@ class Cliente:
         def operacao_finalizar_compra():
             mensagem = {
                 'acao': 'finalizar_compra',
-                'email': self.email
+                'email': self.usuario_logado['email']
             }
             return self.enviar_mensagem(mensagem)
 
@@ -500,7 +504,6 @@ class Cliente:
     # HISTÓRICO DE TRANSAÇÕES
     
     def historico_compras(self, callback=None):
-        """Obtém o histórico de compras do usuário (RF018)"""
         def operacao_historico_compras():
             mensagem = {'acao': 'historico_compras', 'email': self.usuario_logado['email']}
             return self.enviar_mensagem(mensagem)
@@ -509,9 +512,8 @@ class Cliente:
             return self.executar_operacao(operacao_historico_compras, callback)
         else:
             return operacao_historico_compras()
-    
+
     def historico_vendas(self, callback=None):
-        """Obtém o histórico de vendas do usuário (RF018)"""
         def operacao_historico_vendas():
             mensagem = {'acao': 'historico_vendas', 'email': self.usuario_logado['email']}
             return self.enviar_mensagem(mensagem)
@@ -520,6 +522,7 @@ class Cliente:
             return self.executar_operacao(operacao_historico_vendas, callback)
         else:
             return operacao_historico_vendas()
+
     
     def encerrar(self):
         """Encerra a conexão com o servidor"""
