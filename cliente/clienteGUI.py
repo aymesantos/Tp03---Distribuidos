@@ -3,9 +3,9 @@ import os
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QMenu, QLabel, QLineEdit, 
                            QListWidget, QStackedWidget, QPushButton, QHBoxLayout, QMessageBox, 
                            QComboBox, QGridLayout, QFileDialog, QListWidgetItem, QScrollArea, 
-                           QFrame, QTextEdit, QDialog, QDoubleSpinBox, QSpinBox)
+                           QFrame, QTextEdit, QDialog, QDoubleSpinBox, QFormLayout, QSpinBox)
 from PyQt6.QtGui import QPixmap, QPalette, QBrush, QPainter, QImage, QFont, QColor, QIcon
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
 import re
 from cliente import Cliente
 from PIL import Image
@@ -14,28 +14,35 @@ import base64
 
 # Constantes para estilo
 FONTE_PRINCIPAL = "Verdana"
-COR_TEXTO = "#333333"
-COR_DESTAQUE = "#4b0082"  # Cor "mágica" para destacar elementos
+COR_FUNDO = "#1e2b2b"       # Fundo escuro
+COR_TEXTO = "#e2c8a0"       # Texto dourado/bege
+COR_DESTAQUE = "#e2c8a0"    # Botões em dourado/bege
+
 
 class ImagemClicavel(QLabel):
-    """Widget de imagem que pode ser clicada para seleção de arquivo"""
+    """Widget para selecionar imagem de perfil clicável"""
     clicado = pyqtSignal()
     
-    def __init__(self, texto_placeholder="Clique para selecionar imagem"):
+    def __init__(self, texto_padrao=""):
         super().__init__()
-        self.texto_placeholder = texto_placeholder
-        self.caminho_imagem = None
+        self.texto_padrao = texto_padrao
+        self.caminho_imagem = ""
+        self.setFixedSize(150, 150)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setMinimumSize(200, 200)
-        self.setStyleSheet("""
-            border: 2px dashed #888;
-            background-color: #f0f0f0;
-            border-radius: 5px;
+        self.setStyleSheet(f"""
+            border: 2px dashed {COR_TEXTO};
+            border-radius: 75px;
+            background-color: #152121;
+            color: {COR_TEXTO};
         """)
-        self.setText(self.texto_placeholder)
+        self.setText(texto_padrao)
+        self.setWordWrap(True)
         
     def mousePressEvent(self, event):
-        self.clicado.emit()
+        caminho, _ = QFileDialog.getOpenFileName(self, "Selecione uma imagem", "", "Imagens (*.png *.jpg *.bmp)")
+        if caminho:
+            self.atualizar_imagem(caminho)
+            self.clicado.emit() 
         
     def atualizar_imagem(self, caminho):
         if caminho and os.path.exists(caminho):
@@ -75,7 +82,7 @@ class ProdutoItem(QWidget):
         
         # Informações do produto
         info_layout = QVBoxLayout()
-        titulo = QLabel(f"<b>{self.produto['titulo']}</b>")
+        titulo = QLabel(f"<b>{self.produto['nome']}</b>")
         titulo.setFont(QFont(FONTE_PRINCIPAL, 12))
         
         preco = QLabel(f"R$ {self.produto['preco']:.2f}")
@@ -147,7 +154,7 @@ class JanelaLogin(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                cursor: pointer;
+                cursor: pointer-hand;
             }
         """)
         self.login_btn.clicked.connect(self.realizar_login)
@@ -161,7 +168,7 @@ class JanelaLogin(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                cursor: pointer;
+                cursor: pointer-hand;
             }
         """)
         self.cadastro_btn.clicked.connect(self.ir_para_cadastro)
@@ -180,6 +187,7 @@ class JanelaLogin(QWidget):
 
         if resposta:
             if resposta.get('status') == 'sucesso':
+                self.usuario_logado = resposta.get('usuario')
                 QMessageBox.information(self, 'Sucesso', 'Login realizado com sucesso!')
                 self.abrir_marketplace()
             elif resposta.get('erro') == 'senha_incorreta':
@@ -304,7 +312,7 @@ class JanelaCadastro(QWidget):
                 border: none;
             }
             QPushButton:hover {
-                cursor: pointer;
+                cursor: pointer-hand;
             }
         """)
         self.cadastrar_btn.clicked.connect(self.realizar_cadastro)
@@ -377,17 +385,263 @@ class JanelaCadastro(QWidget):
             QMessageBox.warning(self, 'Erro', 'Erro de conexão com o servidor.')
 
 class JanelaPerfilUsuario(QDialog):
+    """Janela para visualizar o perfil do usuário"""
+    def __init__(self, cliente):
+        super().__init__()
+        self.cliente = cliente
+        self.initUI()
+        self.carregar_dados_usuario()
+    
+    def initUI(self):
+        self.setWindowTitle("Perfil do Usuário")
+        self.setFixedSize(500, 550)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
+        
+        layout_principal = QVBoxLayout()
+        
+        # Título
+        titulo = QLabel("Perfil do Bruxo")
+        titulo.setFont(QFont(FONTE_PRINCIPAL, 18, QFont.Weight.Bold))
+        titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout_principal.addWidget(titulo)
+        
+        # Foto de perfil
+        self.foto_container = QFrame()
+        self.foto_container.setFixedSize(180, 180)
+        self.foto_container.setStyleSheet(f"""
+            background-color: #152121;
+            border-radius: 90px;
+            border: 3px solid {COR_TEXTO};
+        """)
+        
+        foto_layout = QVBoxLayout(self.foto_container)
+        foto_layout.setContentsMargins(5, 5, 5, 5)
+        
+        self.foto_label = QLabel()
+        self.foto_label.setFixedSize(170, 170)
+        self.foto_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.foto_label.setStyleSheet("border-radius: 85px;")
+        foto_layout.addWidget(self.foto_label)
+        
+        layout_principal.addWidget(self.foto_container, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Informações do usuário
+        info_frame = QFrame()
+        info_frame.setStyleSheet("""
+            border: 1px solid #e2c8a0;
+            border-radius: 15px;
+            padding: 10px;
+        """)
+        
+        info_layout = QVBoxLayout(info_frame)
+        
+        # Nome
+        nome_layout = QHBoxLayout()
+        nome_titulo = QLabel("Nome:")
+        nome_titulo.setFont(QFont(FONTE_PRINCIPAL, 12, QFont.Weight.Bold))
+        self.nome_valor = QLabel("Carregando...")
+        self.nome_valor.setFont(QFont(FONTE_PRINCIPAL, 12))
+        
+        nome_layout.addWidget(nome_titulo)
+        nome_layout.addWidget(self.nome_valor)
+        info_layout.addLayout(nome_layout)
+        
+        # Casa de Hogwarts
+        casa_layout = QHBoxLayout()
+        casa_titulo = QLabel("Casa de Hogwarts:")
+        casa_titulo.setFont(QFont(FONTE_PRINCIPAL, 12, QFont.Weight.Bold))
+        self.casa_valor = QLabel("Carregando...")
+        self.casa_valor.setFont(QFont(FONTE_PRINCIPAL, 12))
+        
+        casa_layout.addWidget(casa_titulo)
+        casa_layout.addWidget(self.casa_valor)
+        info_layout.addLayout(casa_layout)
+        
+        # Tipo de Bruxo
+        tipo_layout = QHBoxLayout()
+        tipo_titulo = QLabel("Tipo de Bruxo:")
+        tipo_titulo.setFont(QFont(FONTE_PRINCIPAL, 12, QFont.Weight.Bold))
+        self.tipo_valor = QLabel("Carregando...")
+        self.tipo_valor.setFont(QFont(FONTE_PRINCIPAL, 12))
+        
+        tipo_layout.addWidget(tipo_titulo)
+        tipo_layout.addWidget(self.tipo_valor)
+        info_layout.addLayout(tipo_layout)
+        
+        layout_principal.addWidget(info_frame)
+        
+        # Botões
+        botoes_layout = QHBoxLayout()
+        
+        # Botão Editar
+        self.editar_btn = QPushButton("Editar Perfil")
+        self.editar_btn.setFont(QFont(FONTE_PRINCIPAL, 11))
+        self.editar_btn.clicked.connect(self.abrir_janela_edicao)
+        botoes_layout.addWidget(self.editar_btn)
+        
+        # Botão Fechar
+        fechar_btn = QPushButton("Fechar")
+        fechar_btn.setFont(QFont(FONTE_PRINCIPAL, 11))
+        fechar_btn.clicked.connect(self.reject)
+        botoes_layout.addWidget(fechar_btn)
+        
+        layout_principal.addLayout(botoes_layout)
+        
+        self.setLayout(layout_principal)
+    
+    def carregar_dados_usuario(self):
+        """Carrega os dados do usuário do cliente"""
+        try:
+            dados = self.cliente.obter_dados_perfil()
+            print(f"DEBUG: Dados recebidos na interface: {dados}")
+            
+            if not dados or (isinstance(dados, dict) and dados.get('status') == 'erro'):
+                raise Exception(f"Dados inválidos: {dados}")
+                
+            if 'nome' in dados:
+                self.nome_valor.setText(dados["nome"])
+            else:
+                self.nome_valor.setText("Não disponível")
+                
+            if 'casa_hogwarts' in dados:
+                self.casa_valor.setText(dados["casa_hogwarts"])
+            elif 'casa' in dados:
+                self.casa_valor.setText(dados["casa"])
+            else:
+                self.casa_valor.setText("Não disponível")
+                
+            if 'tipo_bruxo' in dados:
+                self.tipo_valor.setText(dados["tipo_bruxo"])
+            else:
+                self.tipo_valor.setText("Não disponível")
+            
+            # Verifica se há foto de perfil
+            if 'foto_perfil' in dados and dados["foto_perfil"]:
+                pixmap = QPixmap(dados["foto_perfil"])
+                if not pixmap.isNull():
+                    pixmap_arredondada = self.criar_pixmap_arredondado(pixmap)
+                    self.foto_label.setPixmap(pixmap_arredondada)
+                    print("DEBUG: Foto carregada com sucesso")
+                else:
+                    print("DEBUG: Pixmap nulo, usando foto padrão")
+                    self.definir_foto_padrao()
+            else:
+                self.definir_foto_padrao()
+                
+        except Exception as e:
+            print(f"ERRO: {str(e)}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar dados do perfil: {str(e)}")
+            self.definir_foto_padrao()
+            self.nome_valor.setText("Erro ao carregar")
+            self.casa_valor.setText("Erro ao carregar")
+            self.tipo_valor.setText("Erro ao carregar")
+    
+    def definir_foto_padrao(self):
+        """Define uma imagem padrão quando não há foto de perfil"""
+        self.foto_label.setText("Sem\nfoto de\nperfil")
+        self.foto_label.setStyleSheet("""
+            border-radius: 85px;
+            background-color: #152121;
+            color: #e2c8a0;
+            font-weight: bold;
+            font-size: 14px;
+        """)
+    
+    def criar_pixmap_arredondado(self, pixmap):
+        """Cria um pixmap circular para a foto de perfil"""
+        if pixmap.isNull():
+            return pixmap
+            
+        tamanho = min(self.foto_label.width(), self.foto_label.height())
+        return pixmap.scaled(tamanho, tamanho, Qt.AspectRatioMode.KeepAspectRatio)
+    
+    def abrir_janela_edicao(self):
+        """Abre a janela para editar o perfil"""
+        janela_edicao = JanelaEditarPerfil(self.cliente)
+        if janela_edicao.exec() == QDialog.DialogCode.Accepted:
+            self.carregar_dados_usuario()
+
+
+class JanelaEditarPerfil(QDialog):
     """Janela para editar o perfil do usuário"""
     def __init__(self, cliente):
         super().__init__()
         self.cliente = cliente
-        self.foto_label = QLabel(self)  
-        self.foto_label.setGeometry(50, 50, 100, 100) 
         self.initUI()
-        
+        self.carregar_dados_usuario()
+    
     def initUI(self):
         self.setWindowTitle("Editar Perfil")
-        self.setFixedSize(500, 400)
+        self.setFixedSize(500, 550)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QComboBox {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
         
         layout = QVBoxLayout()
         
@@ -397,25 +651,118 @@ class JanelaPerfilUsuario(QDialog):
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(titulo)
         
+        # Container para os campos de formulário
+        form_frame = QFrame()
+        form_frame.setStyleSheet("""
+            border: 1px solid #e2c8a0;
+            border-radius: 15px;
+            padding: 10px;
+        """)
+        form_layout = QFormLayout(form_frame)
+        form_layout.setSpacing(15)
+        
         # Widget para foto de perfil
+        foto_label = QLabel("Foto de Perfil:")
+        foto_label.setFont(QFont(FONTE_PRINCIPAL, 11, QFont.Weight.Bold))
         self.foto_perfil = ImagemClicavel("Clique para selecionar foto de perfil")
+        self.foto_perfil.setFixedSize(150, 150)
         self.foto_perfil.clicado.connect(self.selecionar_foto)
-        layout.addWidget(self.foto_perfil, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Adicionar foto em um layout horizontal centralizado
+        foto_container = QWidget()
+        foto_container_layout = QVBoxLayout(foto_container)
+        foto_container_layout.addWidget(self.foto_perfil, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Campo Nome
+        nome_label = QLabel("Nome:")
+        nome_label.setFont(QFont(FONTE_PRINCIPAL, 11, QFont.Weight.Bold))
+        self.nome_input = QLineEdit()
+        self.nome_input.setFont(QFont(FONTE_PRINCIPAL, 11))
+        self.nome_input.setPlaceholderText("Seu nome completo")
+        form_layout.addRow(nome_label, self.nome_input)
+        
+        # Campo Casa de Hogwarts
+        casa_label = QLabel("Casa de Hogwarts:")
+        casa_label.setFont(QFont(FONTE_PRINCIPAL, 11, QFont.Weight.Bold))
+        self.casa_combo = QComboBox()
+        self.casa_combo.setFont(QFont(FONTE_PRINCIPAL, 11))
+        self.casa_combo.addItems(["Grifinória", "Sonserina", "Corvinal", "Lufa-Lufa"])
+        form_layout.addRow(casa_label, self.casa_combo)
+        
+        # Campo Tipo de Bruxo
+        tipo_label = QLabel("Tipo de Bruxo:")
+        tipo_label.setFont(QFont(FONTE_PRINCIPAL, 11, QFont.Weight.Bold))
+        self.tipo_combo = QComboBox()
+        self.tipo_combo.setFont(QFont(FONTE_PRINCIPAL, 11))
+        self.tipo_combo.addItems(["Sangue-Puro", "Nascido-trouxa", "Aborto"])
+        form_layout.addRow(tipo_label, self.tipo_combo)
+        
+        # Adicionar foto e formulário ao layout principal
+        layout.addWidget(foto_container)
+        layout.addWidget(form_frame)
+        
+        # Layout para botões
+        botoes_layout = QHBoxLayout()
         
         # Botão de salvar
         salvar_btn = QPushButton("Salvar Alterações")
+        salvar_btn.setFont(QFont(FONTE_PRINCIPAL, 11))
         salvar_btn.clicked.connect(self.salvar_perfil)
-        layout.addWidget(salvar_btn)
+        botoes_layout.addWidget(salvar_btn)
         
         # Botão de cancelar
         cancelar_btn = QPushButton("Cancelar")
+        cancelar_btn.setFont(QFont(FONTE_PRINCIPAL, 11))
         cancelar_btn.clicked.connect(self.reject)
-        layout.addWidget(cancelar_btn)
+        botoes_layout.addWidget(cancelar_btn)
+        
+        layout.addLayout(botoes_layout)
         
         self.setLayout(layout)
+    
+    def carregar_dados_usuario(self):
+        """Carrega os dados existentes do usuário"""
+        try:
+            dados = self.cliente.obter_dados_perfil()
 
+            if 'nome' in dados:
+                self.nome_input.setText(dados["nome"])
+                
+            if 'casa_hogwarts' in dados:
+                index = self.casa_combo.findText(dados["casa_hogwarts"])
+                if index >= 0:
+                    self.casa_combo.setCurrentIndex(index)
+            elif 'casa' in dados:
+                index = self.casa_combo.findText(dados["casa"])
+                if index >= 0:
+                    self.casa_combo.setCurrentIndex(index)
+                    
+            if 'tipo_bruxo' in dados:
+                index = self.tipo_combo.findText(dados["tipo_bruxo"])
+                if index >= 0:
+                    self.tipo_combo.setCurrentIndex(index)
+            
+            if 'foto_perfil' in dados and dados["foto_perfil"]:
+                self.foto_perfil.caminho_imagem = dados["foto_perfil"]
+                pixmap = QPixmap(dados["foto_perfil"])
+                if not pixmap.isNull():
+                    self.foto_perfil.setPixmap(pixmap.scaled(
+                        self.foto_perfil.width(), 
+                        self.foto_perfil.height(),
+                        Qt.AspectRatioMode.KeepAspectRatio
+                    ))
+                    self.foto_perfil.setText("")
+                else:
+                    self.foto_perfil.setText("Clique para\nselecionar foto")
+            else:
+                self.foto_perfil.setText("Clique para\nselecionar foto")
+                
+        except Exception as e:
+            print(f"Erro ao carregar dados existentes: {str(e)}")
+            QMessageBox.warning(self, "Erro", f"Erro ao carregar dados do perfil: {str(e)}")
+    
     def selecionar_foto(self):
-        options = QFileDialog.Option.DontUseNativeDialog  # ou combine com outras se quiser
+        options = QFileDialog.Option.DontUseNativeDialog
         arquivo, _ = QFileDialog.getOpenFileName(
             self,
             "Selecionar Foto de Perfil",
@@ -424,26 +771,49 @@ class JanelaPerfilUsuario(QDialog):
             options=options
         )
         if arquivo:
-            self.caminho_foto = arquivo
+            self.foto_perfil.caminho_imagem = arquivo
             pixmap = QPixmap(arquivo)
-            self.foto_label.setPixmap(pixmap.scaled(100, 100))
             if not pixmap.isNull():
-                self.foto_label.setPixmap(pixmap.scaled(100, 100))
+                self.foto_perfil.setPixmap(pixmap.scaled(
+                    self.foto_perfil.width(), 
+                    self.foto_perfil.height(),
+                    Qt.AspectRatioMode.KeepAspectRatio
+                ))
+                self.foto_perfil.setText("")
             else:
                 print("Erro: imagem não carregada corretamente.")
-
+                QMessageBox.warning(self, "Erro", "Não foi possível carregar a imagem selecionada.")
     
     def salvar_perfil(self):
-        caminho = self.foto_perfil.caminho_imagem
-        if caminho:
-            resposta = self.cliente.atualizar_foto_perfil(caminho)
-            if resposta and resposta.get('status') == 'sucesso':
-                QMessageBox.information(self, "Sucesso", "Perfil atualizado com sucesso!")
-                self.accept()
-            else:
-                QMessageBox.warning(self, "Erro", f"Erro ao atualizar o perfil: {resposta.get('mensagem', 'Tente novamente')}")
-        else:
-            QMessageBox.warning(self, "Aviso", "Nenhuma alteração foi feita.")
+        """Salva as alterações no perfil do usuário - versão thread-safe"""
+        try:
+            nome = self.nome_input.text()
+            casa_hogwarts = self.casa_combo.currentText()
+            tipo_bruxo = self.tipo_combo.currentText()
+            foto_perfil = getattr(self.foto_perfil, 'caminho_imagem', None)
+
+            def callback_atualizacao(resposta):        
+                def atualizar_ui():
+                    if resposta and resposta.get('status') == 'sucesso':
+                        QMessageBox.information(self, "Sucesso", "Perfil atualizado com sucesso!")
+                        self.accept()
+                    else:
+                        QMessageBox.warning(self, "Erro", f"Erro ao atualizar o perfil: {resposta.get('mensagem', 'Tente novamente')}")
+                
+                # Usar QTimer.singleShot para garantir que a execução ocorra na thread principal
+                QTimer.singleShot(0, atualizar_ui)
+            
+            self.cliente.atualizar_perfil(
+                nome=nome, 
+                casa_hogwarts=casa_hogwarts, 
+                tipo_bruxo=tipo_bruxo, 
+                foto_perfil=foto_perfil,
+                callback=callback_atualizacao
+            )
+            
+        except Exception as e:
+            print(f"Erro ao salvar perfil: {str(e)}")
+            QMessageBox.warning(self, "Erro", f"Erro ao salvar perfil: {str(e)}")
 
 class JanelaCriarLoja(QDialog):
     """Janela para criar ou editar uma loja"""
@@ -501,7 +871,7 @@ class JanelaCriarLoja(QDialog):
         self.setLayout(layout)
     
     def selecionar_imagem(self):
-        options = QFileDialog.Options()
+        options = QFileDialog.DontUseNativeDialog
         caminho, _ = QFileDialog.getOpenFileName(
             self, "Selecionar Imagem da Loja", "", 
             "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
@@ -568,7 +938,7 @@ class JanelaCriarProduto(QDialog):
         layout.addWidget(QLabel("Título do Produto:"))
         self.titulo_input = QLineEdit()
         if self.produto_dados:
-            self.titulo_input.setText(self.produto_dados.get('titulo', ''))
+            self.titulo_input.setText(self.produto_dados.get('nome', ''))
         layout.addWidget(self.titulo_input)
         
         # Descrição do produto
@@ -636,7 +1006,7 @@ class JanelaCriarProduto(QDialog):
         self.setLayout(layout)
     
     def adicionar_imagem(self):
-        options = QFileDialog.Options()
+        options = QFileDialog.Option()
         caminhos, _ = QFileDialog.getOpenFileNames(
             self, "Selecionar Imagens", "", 
             "Imagens (*.png *.jpg *.jpeg *.bmp *.gif)", options=options
@@ -809,21 +1179,25 @@ class JanelaMarketplace(QWidget):
         main_layout.addWidget(self.scroll_area)
         
         self.setLayout(main_layout)
-        
+
     def carregar_produtos(self, categoria=None, termo_busca=None):
         """Carrega os produtos do servidor com filtros opcionais"""
+        print(f"Carregando produtos com categoria: {categoria}, termo de busca: {termo_busca}")
+        
         # Limpar layout de produtos
         while self.produtos_layout.count():
             item = self.produtos_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-        
+
         # Buscar produtos no servidor
         resposta = self.cliente.listar_produtos(filtros={'categoria': categoria, 'termo_busca': termo_busca})
+        print(resposta)  # Verifique a resposta aqui
 
         if resposta and resposta.get('status') == 'sucesso':
             produtos = resposta.get('produtos', [])
+            print(f"Produtos encontrados: {len(produtos)}")  
             
             if not produtos:
                 info_label = QLabel("Nenhum produto encontrado.")
@@ -832,7 +1206,7 @@ class JanelaMarketplace(QWidget):
                 self.produtos_layout.addWidget(info_label)
             else:
                 for produto in produtos:
-                    produto_widget = ProdutoItem(produto, modo='comprar', tema_escuro=True)
+                    produto_widget = ProdutoItem(produto, modo='comprar')
                     produto_widget.comprar_clicado.connect(self.adicionar_ao_carrinho)
                     self.produtos_layout.addWidget(produto_widget)
                     
@@ -847,7 +1221,7 @@ class JanelaMarketplace(QWidget):
             erro_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             erro_label.setStyleSheet("font-size: 16px; color: #ff6b6b; padding: 20px;")
             self.produtos_layout.addWidget(erro_label)
-    
+
     def buscar_produtos(self):
         """Busca produtos com o termo digitado"""
         termo = self.busca_input.text().strip()
@@ -869,7 +1243,7 @@ class JanelaMarketplace(QWidget):
         
         # Adicionar ao carrinho
         self.carrinho.append(produto)
-        QMessageBox.information(self, "Sucesso", f"'{produto['titulo']}' adicionado ao carrinho!")
+        QMessageBox.information(self, "Sucesso", f"'{produto['nome']}' adicionado ao carrinho!")
         
         # Atualizar contador do botão de carrinho
         self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
@@ -901,64 +1275,44 @@ class JanelaMarketplace(QWidget):
     def abrir_minha_loja(self):
         """Abre a janela da loja do usuário"""
         resposta = self.cliente.obter_loja()
+        print(f"Resposta da loja: {resposta}")         
         
-        if resposta and resposta.get('status') == 'sucesso':
-            # Usuário já tem uma loja
-            loja_data = resposta.get('loja')
-            janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
-            # Aplicar o tema escuro na janela da loja
-            janela_loja.setStyleSheet(self.styleSheet())
-            janela_loja.exec()
-        elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
-            # Usuário não tem loja, perguntar se deseja criar
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Criar Loja")
-            msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            msg_box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1e2b2b;
-                }
-                QLabel {
-                    color: #e2c8a0;
-                }
-                QPushButton {
-                    background-color: #e2c8a0;
-                    color: #333333;
-                    border-radius: 5px;
-                    padding: 5px;
-                    min-width: 80px;
-                }
-            """)
-            reply = msg_box.exec()
-            
-            if reply == QMessageBox.StandardButton.Yes:
-                dialog = JanelaCriarLoja(self.cliente)
-                # Aplicar o tema escuro na janela de criação de loja
-                dialog.setStyleSheet(self.styleSheet())
-                if dialog.exec() == QDialog.DialogCode.Accepted:
-                    # Loja criada, abrir a janela da loja
-                    self.abrir_minha_loja()
+        if resposta:
+            if resposta.get('status') == 'sucesso':
+                # Usuário já tem uma loja
+                loja_data = resposta #.get('loja')
+                janela_loja = JanelaMinhaLoja(self.cliente, loja_data)
+                janela_loja.setStyleSheet(self.styleSheet())
+                janela_loja.exec()
+            elif resposta and resposta.get('erro') == 'loja_nao_encontrada':
+                # Usuário não tem loja, perguntar se deseja criar
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Criar Loja")
+                msg_box.setText("Você ainda não possui uma loja. Deseja criar agora?")
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+                reply = msg_box.exec()
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    dialog = JanelaCriarLoja(self.cliente)
+                    # Aplicar o tema escuro na janela de criação de loja
+                    dialog.setStyleSheet(self.styleSheet())
+                    if dialog.exec() == QDialog.DialogCode.Accepted:
+                        # Loja criada, abrir a janela da loja
+                        self.abrir_minha_loja()
+            else:
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Erro")
+                msg_box.setText("Erro ao acessar informações da loja.")
+
+                msg_box.exec()
+
         else:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Erro")
-            msg_box.setText("Erro ao acessar informações da loja.")
-            msg_box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1e2b2b;
-                }
-                QLabel {
-                    color: #ff6b6b;
-                }
-                QPushButton {
-                    background-color: #e2c8a0;
-                    color: #333333;
-                    border-radius: 5px;
-                    padding: 5px;
-                }
-            """)
+            msg_box.setText("Erro ao acessar informações da loja X")
             msg_box.exec()
-    
+        
     def fazer_logout(self):
         """Encerra a sessão do usuário e volta para a tela de login"""
         resposta = self.cliente.logout()
@@ -971,20 +1325,6 @@ class JanelaMarketplace(QWidget):
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Erro")
             msg_box.setText("Erro ao realizar logout.")
-            msg_box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1e2b2b;
-                }
-                QLabel {
-                    color: #ff6b6b;
-                }
-                QPushButton {
-                    background-color: #e2c8a0;
-                    color: #333333;
-                    border-radius: 5px;
-                    padding: 5px;
-                }
-            """)
             msg_box.exec()
 
 
@@ -1000,6 +1340,40 @@ class JanelaCarrinho(QDialog):
     def initUI(self):
         self.setWindowTitle("Carrinho de Compras")
         self.setFixedSize(800, 600)
+
+                # Definir o estilo global para aplicação
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e2b2b;
+                color: #e2c8a0;
+            }
+            QPushButton {
+                background-color: #e2c8a0;
+                color: #333333;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d0b68e;
+            }
+            QLineEdit {
+                background-color: white;
+                color: #333333;
+                border-radius: 10px;
+                padding: 5px;
+            }
+            QScrollArea {
+                border: 1px solid #152121;
+                border-radius: 5px;
+            }
+            QLabel {
+                color: #e2c8a0;
+            }
+            QFrame {
+                background-color: #1e2b2b;
+            }
+        """)
         
         layout = QVBoxLayout()
         
@@ -1079,7 +1453,7 @@ class JanelaCarrinho(QDialog):
         info_widget = QWidget()
         info_layout = QVBoxLayout(info_widget)
         
-        titulo = QLabel(produto['titulo'])
+        titulo = QLabel(produto['nome'])
         titulo.setFont(QFont(FONTE_PRINCIPAL, 12, QFont.Weight.Bold))
         
         preco = QLabel(f"R$ {float(produto['preco']):.2f}")
@@ -1117,7 +1491,7 @@ class JanelaCarrinho(QDialog):
         if reply == QMessageBox.StandardButton.Yes:
             # Enviar requisição para o servidor
             produtos_ids = [p['id'] for p in self.carrinho]
-            resposta = self.cliente.realizar_compra(produtos_ids)
+            resposta = self.cliente.realizar_compra()
             
             if resposta and resposta.get('status') == 'sucesso':
                 QMessageBox.information(self, "Sucesso", "Compra realizada com sucesso!")
@@ -1348,7 +1722,7 @@ class JanelaHistorico(QDialog):
     def listar_compras(self, layout):
         """Lista as compras do usuário"""
         # Buscar compras do servidor
-        resposta = self.cliente.listar_compras()
+        resposta = self.cliente.historico_compras()
         
         if resposta and resposta.get('status') == 'sucesso':
             compras = resposta.get('compras', [])
@@ -1386,7 +1760,7 @@ class JanelaHistorico(QDialog):
     def listar_vendas(self, layout):
         """Lista as vendas do usuário"""
         # Buscar vendas do servidor
-        resposta = self.cliente.listar_vendas()
+        resposta = self.cliente.historico_vendas()
         
         if resposta and resposta.get('status') == 'sucesso':
             vendas = resposta.get('vendas', [])
