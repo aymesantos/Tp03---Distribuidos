@@ -13,7 +13,6 @@ class Cliente:
         self.socket = None
         self.usuario_logado = None
         self.token = None
-        # Lock para sincronização de threads
         self.socket_lock = threading.Lock()
         self.conectar()
     
@@ -41,7 +40,6 @@ class Cliente:
                 mensagem_json_obj['token'] = self.token
                 mensagem_json = json.dumps(mensagem_json_obj)
             
-            # Envia a mensagem como bytes
             self.socket.sendall(mensagem_json.encode('utf-8'))
             print(f"Enviando para o servidor: {mensagem_json}")
 
@@ -127,8 +125,6 @@ class Cliente:
     def obter_dados_perfil(self, callback=None):
         """Obtém os dados do perfil do usuário logado"""
         def operacao_obter_perfil():
-            print("=== DEBUG: Iniciando obter_dados_perfil ===")
-            print(f"DEBUG: Usuario logado: {self.usuario_logado}")
             
             if not self.usuario_logado:
                 return {"status": "erro", "erro": "usuario_nao_logado"}
@@ -153,9 +149,8 @@ class Cliente:
                     
                 return self.usuario_logado
             else:
-                print(f"DEBUG: Erro na resposta - {resposta}")
+                print(f"Erro na resposta - {resposta}")
             
-            print("=== DEBUG: Finalizando obter_dados_perfil ===")
             return resposta
 
         if callback:
@@ -214,7 +209,7 @@ class Cliente:
         # Fecha a conexão, se existir
         if hasattr(self, 'socket') and self.socket:
             try:
-                self.socket.shutdown(socket.SHUT_RDWR)  # opcional para uma finalização limpa
+                self.socket.shutdown(socket.SHUT_RDWR) 
                 self.socket.close()
             except Exception as e:
                 print(f"Erro ao fechar conexão: {e}")

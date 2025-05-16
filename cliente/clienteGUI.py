@@ -33,7 +33,6 @@ class ProdutoItem(QWidget):
     def initUI(self):
         layout = QHBoxLayout()
 
-        # Informações do produto
         info_layout = QVBoxLayout()
         titulo = QLabel(f"<b>{self.produto.get('nome', 'Sem nome')}</b>")
         titulo.setFont(QFont(FONTE_PRINCIPAL, 12))
@@ -43,7 +42,6 @@ class ProdutoItem(QWidget):
         preco.setStyleSheet(f"color: {COR_DESTAQUE};")
 
         descricao_texto = self.produto.get('descricao', 'Sem descrição')
-        # Limitar descrição para, por exemplo, 100 caracteres com "..."
         if len(descricao_texto) > 100:
             descricao_texto = descricao_texto[:100] + "..."
         descricao = QLabel(descricao_texto)
@@ -58,7 +56,7 @@ class ProdutoItem(QWidget):
         if self.modo == 'comprar':
             acao_btn = QPushButton("Adicionar ao Carrinho")
             acao_btn.clicked.connect(lambda: self.comprar_clicado.emit(self.produto))
-        else:  # modo editar
+        else: 
             acao_btn = QPushButton("Editar")
             acao_btn.clicked.connect(lambda: self.editar_clicado.emit(self.produto))
 
@@ -408,7 +406,7 @@ class JanelaPerfilUsuario(QDialog):
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_principal.addWidget(titulo)
         
-        # Informações do usuário (sem foto)
+        # Informações do usuário
         info_frame = QFrame()
         info_frame.setStyleSheet("""
             border: 1px solid #e2c8a0;
@@ -462,7 +460,6 @@ class JanelaPerfilUsuario(QDialog):
         self.historico_vendas_btn.clicked.connect(self.abrir_historico_vendas)
         botoes_layout.addWidget(self.historico_vendas_btn)
     
-        
         # Botão Fechar
         fechar_btn = QPushButton("Fechar")
         fechar_btn.setFont(QFont(FONTE_PRINCIPAL, 11))
@@ -584,8 +581,6 @@ class JanelaCriarLoja(QDialog):
         self.descricao_input.setMaximumHeight(100)
         layout.addWidget(self.descricao_input)
         
-        # Removida a parte da imagem
-        
         # Botões
         botoes_layout = QHBoxLayout()
         salvar_btn = QPushButton("Salvar")
@@ -599,8 +594,6 @@ class JanelaCriarLoja(QDialog):
         
         self.setLayout(layout)
     
-    # Removido o método selecionar_imagem
-    
     def salvar_loja(self):
         nome_loja = self.nome_loja_input.text().strip()
         descricao = self.descricao_input.toPlainText().strip()
@@ -612,8 +605,7 @@ class JanelaCriarLoja(QDialog):
         if not descricao:
             QMessageBox.warning(self, "Erro", "A descrição da loja é obrigatória.")
             return
-        
-        # Remove o caminho_imagem na chamada
+
         if self.loja_dados:
             resposta = self.cliente.editar_loja(
                 nome_loja=nome_loja, 
@@ -724,7 +716,7 @@ class JanelaCriarProduto(QDialog):
                 self.categoria_input.setCurrentIndex(index)
         layout.addWidget(self.categoria_input)
 
-        # Status (somente para edição)
+        # Status 
         if self.produto_dados:
             layout.addWidget(QLabel("Status do Produto:"))
             self.status_input = QComboBox()
@@ -789,7 +781,7 @@ class JanelaMarketplace(QWidget):
     def __init__(self, cliente):
         super().__init__()
         self.cliente = cliente
-        self.carrinho = []  # Lista para armazenar produtos no carrinho
+        self.carrinho = [] 
         self.initUI()
         self.carregar_produtos()
         
@@ -797,7 +789,6 @@ class JanelaMarketplace(QWidget):
         self.setWindowTitle('BecoDiagonal - Marketplace')
         self.setFixedSize(1366, 768)
         
-        # Definir o estilo global para aplicação
         self.setStyleSheet("""
             QWidget {
                 background-color: #1e2b2b;
@@ -888,8 +879,7 @@ class JanelaMarketplace(QWidget):
             categorias_layout.addWidget(cat_btn)
         
         main_layout.addLayout(categorias_layout)
-        
-        # Área de conteúdo principal com produtos
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_widget = QWidget()
@@ -904,16 +894,14 @@ class JanelaMarketplace(QWidget):
         """Carrega os produtos do servidor com filtros opcionais"""
         print(f"Carregando produtos com categoria: {categoria}, termo de busca: {termo_busca}")
         
-        # Limpar layout de produtos
         while self.produtos_layout.count():
             item = self.produtos_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
 
-        # Buscar produtos no servidor
         resposta = self.cliente.listar_produtos(filtros={'categoria': categoria, 'termo_busca': termo_busca})
-        print(resposta)  # Verifique a resposta aqui
+        print(resposta)
 
         if resposta and resposta.get('status') == 'sucesso':
             produtos = resposta.get('produtos', [])
@@ -929,8 +917,7 @@ class JanelaMarketplace(QWidget):
                     produto_widget = ProdutoItem(produto, modo='comprar')
                     produto_widget.comprar_clicado.connect(self.adicionar_ao_carrinho)
                     self.produtos_layout.addWidget(produto_widget)
-                    
-                    # Adicionar linha separadora
+
                     linha = QFrame()
                     linha.setFrameShape(QFrame.Shape.HLine)
                     linha.setFrameShadow(QFrame.Shadow.Sunken)
@@ -974,24 +961,19 @@ class JanelaMarketplace(QWidget):
     def abrir_carrinho(self):
         """Abre a janela do carrinho de compras"""
         dialog = JanelaCarrinho(self.cliente, self.carrinho)
-        # Aplicar o tema escuro na janela de carrinho
         dialog.setStyleSheet(self.styleSheet())
         result = dialog.exec()
         
         if result == QDialog.DialogCode.Accepted:
-            # Carrinho foi modificado ou compra foi finalizada
             self.carrinho = dialog.carrinho
             self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
             
-            # Se compra foi finalizada
             if dialog.compra_finalizada:
-                # Recarregar produtos para refletir mudanças
                 self.carregar_produtos()
     
     def abrir_perfil(self):
         """Abre a janela de edição do perfil do usuário"""
         dialog = JanelaPerfilUsuario(self.cliente)
-        # Aplicar o tema escuro na janela de perfil
         dialog.setStyleSheet(self.styleSheet())
         dialog.exec()
     
@@ -1065,7 +1047,6 @@ class JanelaCarrinho(QDialog):
         self.setWindowTitle("Carrinho de Compras")
         self.setFixedSize(800, 600)
 
-                # Definir o estilo global para aplicação
         self.setStyleSheet("""
             QWidget {
                 background-color: #1e2b2b;
@@ -1108,25 +1089,21 @@ class JanelaCarrinho(QDialog):
         layout.addWidget(titulo)
         
         if not self.carrinho:
-            # Carrinho vazio
             info_label = QLabel("Seu carrinho está vazio.")
             info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             info_label.setStyleSheet("font-size: 16px; padding: 20px;")
             layout.addWidget(info_label)
         else:
-            # Lista de produtos no carrinho
             scroll_area = QScrollArea()
             scroll_area.setWidgetResizable(True)
             scroll_widget = QWidget()
             self.itens_layout = QVBoxLayout(scroll_widget)
-            
-            # Adicionar cada produto ao layout
+
             total = 0
             for produto in self.carrinho:
                 item_widget = self.criar_item_carrinho(produto)
                 self.itens_layout.addWidget(item_widget)
-                
-                # Linha separadora
+  
                 linha = QFrame()
                 linha.setFrameShape(QFrame.Shape.HLine)
                 linha.setFrameShadow(QFrame.Shadow.Sunken)
@@ -1136,8 +1113,7 @@ class JanelaCarrinho(QDialog):
             
             scroll_area.setWidget(scroll_widget)
             layout.addWidget(scroll_area)
-            
-            # Mostrar total
+
             self.total_label = QLabel(f"Total: R$ {total:.2f}")
             self.total_label.setFont(QFont(FONTE_PRINCIPAL, 14, QFont.Weight.Bold))
             self.total_label.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -1159,19 +1135,6 @@ class JanelaCarrinho(QDialog):
         """Cria um widget para um item do carrinho"""
         widget = QWidget()
         layout = QHBoxLayout(widget)
-        
-        # Imagem
-        imagem_label = QLabel()
-        if produto.get('imagem_base64'):
-            imagem_data = base64.b64decode(produto['imagem_base64'][0] if isinstance(produto['imagem_base64'], list) else produto['imagem_base64'])
-            pixmap = QPixmap()
-            pixmap.loadFromData(imagem_data)
-            pixmap = pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio)
-            imagem_label.setPixmap(pixmap)
-        else:
-            imagem_label.setText("Sem imagem")
-        imagem_label.setFixedSize(80, 80)
-        layout.addWidget(imagem_label)
         
         # Informações do produto
         info_widget = QWidget()
@@ -1198,7 +1161,7 @@ class JanelaCarrinho(QDialog):
     def remover_do_carrinho(self, produto):
         """Remove um produto do carrinho"""
         self.carrinho = [p for p in self.carrinho if p['id'] != produto['id']]
-        self.accept()  # Fecha e reabre o carrinho para atualizar
+        self.accept() 
         self.done(QDialog.DialogCode.Accepted)
     
     def finalizar_compra(self):
@@ -1206,8 +1169,7 @@ class JanelaCarrinho(QDialog):
         if not self.carrinho:
             QMessageBox.warning(self, "Erro", "Seu carrinho está vazio.")
             return
-        
-        # Confirmar a compra
+
         reply = QMessageBox.question(self, 'Finalizar Compra', 
                                      'Confirma a compra destes itens?',
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -1239,11 +1201,9 @@ class JanelaMinhaLoja(QDialog):
         self.setFixedSize(800, 600)
         
         layout = QVBoxLayout()
-        
-        # Informações da loja
+
         info_layout = QHBoxLayout()
-        
-        # Detalhes da loja
+
         detalhes_layout = QVBoxLayout()
         
         nome_loja = QLabel(self.loja_dados['nome_loja'])
@@ -1263,14 +1223,12 @@ class JanelaMinhaLoja(QDialog):
         info_layout.addWidget(editar_loja_btn, alignment=Qt.AlignmentFlag.AlignTop)
         
         layout.addLayout(info_layout)
-        
-        # Linha separadora
+
         linha = QFrame()
         linha.setFrameShape(QFrame.Shape.HLine)
         linha.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(linha)
-        
-        # Título seção produtos
+
         titulo_produtos = QLabel("Meus Produtos")
         titulo_produtos.setFont(QFont(FONTE_PRINCIPAL, 14, QFont.Weight.Bold))
         layout.addWidget(titulo_produtos)
@@ -1279,8 +1237,7 @@ class JanelaMinhaLoja(QDialog):
         adicionar_produto_btn = QPushButton("Adicionar Novo Produto")
         adicionar_produto_btn.clicked.connect(self.adicionar_produto)
         layout.addWidget(adicionar_produto_btn)
-        
-        # Lista de produtos
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_widget = QWidget()
@@ -1342,12 +1299,10 @@ class JanelaMinhaLoja(QDialog):
         """Abre diálogo para editar informações da loja"""
         dialog = JanelaCriarLoja(self.cliente, self.loja_dados)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            # Recarregar informações da loja
             resposta = self.cliente.obter_loja()
             if resposta and resposta.get('status') == 'sucesso':
                 self.loja_dados = resposta.get('loja')
                 self.setWindowTitle(f"Minha Loja - {self.loja_dados['nome_loja']}")
-                # Recarregar a UI
                 self.close()
                 self.__init__(self.cliente, self.loja_dados)
     
