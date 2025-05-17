@@ -2,9 +2,6 @@ import socket
 import json
 import os
 import base64
-<<<<<<< HEAD
-import datetime
-=======
 import sqlite3
 
 # Caminho para o banco de dados na pasta Dados
@@ -19,7 +16,6 @@ def get_db_connection():
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         return None
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 
 # Mock de dados
 usuarios = {
@@ -29,19 +25,11 @@ usuarios = {
         "casa": "Grifinória",
         "tipo_bruxo": "Sangue-Puro",
     },
-<<<<<<< HEAD
-    "usuario@gmail.com": {
-        "senha": "nova",
-        "nome": "Novo Usuário",
-        "casa": "Corvinal",
-        "tipo_bruxo": "Mestiço",
-=======
     "pedro@gmail.com": {
         "senha": "senha456",
         "nome": "Pedro Augusto",
         "casa": "Sonserina",
         "tipo_bruxo": "Sangue-Puro",
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
     }
 }
 
@@ -79,10 +67,6 @@ for loja in lojas.values():
     for produto in loja['produtos']:
         produto['vendedor'] = email_vendedor
 
-<<<<<<< HEAD
-
-=======
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 # Gerador de IDs
 proximo_id_produto = 4
 proximo_id_loja = 2
@@ -95,32 +79,6 @@ def processar_mensagem(mensagem):
     if acao == 'login':
         email = mensagem.get('email')
         senha = mensagem.get('senha')
-<<<<<<< HEAD
-        if email in usuarios and usuarios[email]['senha'] == senha:
-                    # Verificar se o usuário tem uma loja associada
-                    tem_loja = False
-                    for loja in lojas.values():
-                        if loja['proprietario'] == email:
-                            tem_loja = True
-                            break
-
-                    # Retorna a resposta com a informação de se tem loja ou não
-                    return {
-                        'status': 'sucesso',
-                        'tem_loja': True,
-                        'usuario': {
-                            'email': email,
-                            'nome': usuarios[email]['nome'],
-                            'casa': usuarios[email]['casa'],
-                            'tipo_bruxo': usuarios[email]['tipo_bruxo'],
-                        },
-                    }
-        
-        elif email not in usuarios:
-            return {'erro': 'usuario_nao_encontrado'}
-        else:
-            return {'erro': 'senha_incorreta'}
-=======
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM usuarios WHERE email = ? AND senha = ?", (email, senha))
@@ -148,7 +106,6 @@ def processar_mensagem(mensagem):
         else:
             return {'erro': 'usuario_nao_encontrado_ou_senha_incorreta'}
 
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 
     elif acao == 'cadastro':
         nome = mensagem.get('nome')
@@ -158,9 +115,6 @@ def processar_mensagem(mensagem):
         tipo_bruxo = mensagem.get('tipo_bruxo')
         if email in usuarios:
             return {'erro': 'email_ja_cadastrado'}
-<<<<<<< HEAD
-        usuarios[email] = {"senha": senha, "nome": nome, "casa": casa, "tipo_bruxo": tipo_bruxo}
-=======
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
@@ -174,7 +128,6 @@ def processar_mensagem(mensagem):
         """, (email, senha, nome, casa, tipo_bruxo))
         conn.commit()
         conn.close()
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         return {'status': 'sucesso'}
 
     elif acao == 'visualizar_loja':
@@ -190,11 +143,7 @@ def processar_mensagem(mensagem):
         email = mensagem.get('email')
         nome = mensagem.get('nome')
         casa_hogwarts = mensagem.get('casa_hogwarts')
-<<<<<<< HEAD
-        tipo_bruxo = mensagem.get('tipo_bruxo')
-=======
         tipo_bruxo = mensagem.get('tipo_bruxo') 
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 
         print(f"Recebendo solicitação para atualizar perfil do usuário: {email}")
 
@@ -206,24 +155,15 @@ def processar_mensagem(mensagem):
             if email not in usuarios:
                 print(f"Usuário não encontrado: {email}")
                 return {'status': 'erro', 'erro': 'usuario_nao_encontrado'}
-<<<<<<< HEAD
-
-            usuarios[email]['nome'] = nome
-            usuarios[email]['casa'] = casa_hogwarts
-            usuarios[email]['tipo_bruxo'] = tipo_bruxo
-
-=======
             
             usuarios[email]['nome'] = nome
             usuarios[email]['casa'] = casa_hogwarts
             usuarios[email]['tipo_bruxo'] = tipo_bruxo
             
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
             print(f"Dados do usuário atualizados: {email}")
             print(f"Nome: {nome}")
             print(f"Casa de Hogwarts: {casa_hogwarts}")
             print(f"Tipo de Bruxo: {tipo_bruxo}")
-<<<<<<< HEAD
 
             return {
                 'status': 'sucesso',
@@ -235,35 +175,16 @@ def processar_mensagem(mensagem):
                 }
             }
 
-=======
-            
-            return {'status': 'sucesso', 'mensagem': 'Perfil atualizado com sucesso', 'dados': {
-                'nome': nome,
-                'casa': casa_hogwarts,
-                'tipo_bruxo': tipo_bruxo,
-            }}
-                
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         except Exception as e:
             print(f"Erro ao atualizar perfil: {e}")
             return {'status': 'erro', 'erro': 'falha_ao_atualizar_perfil'}
 
-<<<<<<< HEAD
     elif acao == 'obter_perfil':
         email = mensagem.get('email')
 
         if not email:
             return {'status': 'erro', 'erro': 'email_nao_fornecido'}
 
-=======
-
-    elif acao == 'obter_perfil':
-        email = mensagem.get('email')
-        
-        if not email:
-            return {'status': 'erro', 'erro': 'email_nao_fornecido'}
-        
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         if email not in usuarios:
             return {'status': 'erro', 'erro': 'usuario_nao_encontrado'}
 
@@ -272,15 +193,9 @@ def processar_mensagem(mensagem):
             'casa': usuarios[email].get('casa', ''),
             'tipo_bruxo': usuarios[email].get('tipo_bruxo', '')
         }
-<<<<<<< HEAD
 
         print(f"Enviando dados do perfil para o usuário: {email}")
 
-=======
-        
-        print(f"Enviando dados do perfil para o usuário: {email}")
-        
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         return {
             'status': 'sucesso',
             'dados_perfil': dados_perfil
@@ -328,10 +243,6 @@ def processar_mensagem(mensagem):
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
         loja_id = mensagem.get('loja_id')
-<<<<<<< HEAD
-=======
-        imagem_base64 = mensagem.get('imagem_base64')
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 
         novo_produto = {
             "id": proximo_id_produto,
@@ -340,11 +251,6 @@ def processar_mensagem(mensagem):
             "categoria": categoria,
             "descricao": descricao,
             "loja_id": loja_id,
-<<<<<<< HEAD
-
-=======
-            "imagem_base64": imagem_base64  # só uma imagem
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         }
         produtos_disponiveis.append(novo_produto)
         proximo_id_produto += 1
@@ -356,10 +262,6 @@ def processar_mensagem(mensagem):
         preco = mensagem.get('preco')
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
-<<<<<<< HEAD
-=======
-        imagem_base64 = mensagem.get('imagem_base64')
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 
         produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
         if produto:
@@ -367,11 +269,6 @@ def processar_mensagem(mensagem):
             produto['preco'] = preco
             produto['categoria'] = categoria
             produto['descricao'] = descricao
-<<<<<<< HEAD
-=======
-            if imagem_base64 is not None:
-                produto['imagem_base64'] = imagem_base64
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
             return {'status': 'sucesso', 'produto_editado': produto}
         else:
             return {'erro': 'produto_nao_encontrado'}
@@ -408,7 +305,6 @@ def processar_mensagem(mensagem):
     elif acao == 'adicionar_produto_carrinho':
         email = mensagem.get('email')
         produto_id = mensagem.get('produto_id')
-<<<<<<< HEAD
 
         if email not in carrinho:
             carrinho[email] = []
@@ -429,37 +325,19 @@ def processar_mensagem(mensagem):
             return {'erro': 'produto_nao_encontrado'}
 
 
-=======
-        if email not in carrinho:
-            carrinho[email] = []
-        produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
-        if produto:
-            carrinho[email].append(produto)
-            return {'status': 'sucesso', 'produto_adicionado': produto}
-        else:
-            return {'erro': 'produto_nao_encontrado'}
-
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
     elif acao == 'visualizar_carrinho':
         email = mensagem.get('email')
         return {'status': 'sucesso', 'carrinho': carrinho.get(email, [])}
 
-<<<<<<< HEAD
 
     elif acao == 'finalizar_compra':
         email = mensagem.get('email')
         metodo_pagamento = 'galeao'
 
-=======
-    elif acao == 'finalizar_compra':
-        email = mensagem.get('email')
-        metodo_pagamento = 'galeao'  
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         if not email or email not in carrinho or not carrinho[email]:
             return {'erro': 'carrinho_vazio'}
 
         itens = carrinho[email]
-<<<<<<< HEAD
         carrinho[email] = []
 
         data_hoje = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
@@ -498,23 +376,6 @@ def processar_mensagem(mensagem):
                 'vendedor_email': email_vendedor
             }
             transacoes.append(transacao)
-=======
-        carrinho[email] = [] 
-        compra = {
-            'produtos': itens,
-            'metodo_pagamento': metodo_pagamento
-        }
-        historico_compras.setdefault(email, []).append(compra)
-        for item in itens:
-            vendedor = item.get('vendedor')
-            if vendedor:
-                venda = {
-                    'produto': item,
-                    'comprador': email,
-                    'metodo_pagamento': metodo_pagamento
-                }
-                historico_vendas.setdefault(vendedor, []).append(venda)
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
 
         return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
 
@@ -550,7 +411,6 @@ def processar_mensagem(mensagem):
         compras_usuario = []
         for transacao in transacoes:
             if transacao.get('comprador_email') == email:
-<<<<<<< HEAD
                 vendedor_email = transacao.get('vendedor_email', None)
                 nome_vendedor = usuarios.get(vendedor_email, {}).get('nome', 'Desconhecido')
 
@@ -562,15 +422,6 @@ def processar_mensagem(mensagem):
                     'usuario': nome_vendedor 
                 })
 
-=======
-                compras_usuario.append({
-                    'produto': transacao['produto'],
-                    'quantidade': transacao['quantidade'],
-                    'total': transacao['total'],
-                    'data': transacao['data']
-                })
-        
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         return {'status': 'sucesso', 'compras': compras_usuario}
 
     elif acao == 'historico_vendas':
@@ -579,7 +430,6 @@ def processar_mensagem(mensagem):
         vendas_usuario = []
         for transacao in transacoes:
             if transacao.get('vendedor_email') == email:
-<<<<<<< HEAD
                 comprador_email = transacao.get('comprador_email', None)
                 nome_comprador = usuarios.get(comprador_email, {}).get('nome', 'Desconhecido')
 
@@ -591,23 +441,10 @@ def processar_mensagem(mensagem):
                     'usuario': nome_comprador 
                 })
 
-=======
-                vendas_usuario.append({
-                    'produto': transacao['produto'],
-                    'quantidade': transacao['quantidade'],
-                    'total': transacao['total'],
-                    'data': transacao['data']
-                })
-        
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
         return {'status': 'sucesso', 'vendas': vendas_usuario}
 
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> e0f006b (Adiciona pasta servidor vinda da branch servidor)
     return {'erro': 'acao_invalida'}
 
 def iniciar_servidor(host='localhost', porta=5000):
