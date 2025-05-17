@@ -2,6 +2,20 @@ import socket
 import json
 import os
 import base64
+import sqlite3
+
+# Caminho para o banco de dados na pasta Dados
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'Dados', 'banco.db')
+
+def get_db_connection():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        print(f"Conexão com o banco de dados estabelecida!")
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
 
 # Mock de dados
 usuarios = {
@@ -10,14 +24,25 @@ usuarios = {
         "nome": "Ayme Faustino",
         "casa": "Grifinória",
         "tipo_bruxo": "Sangue-Puro",
-        "foto_perfil": None
+    },
+    "pedro@gmail.com": {
+        "senha": "senha456",
+        "nome": "Pedro Augusto",
+        "casa": "Sonserina",
+        "tipo_bruxo": "Sangue-Puro",
     }
 }
 
 produtos_disponiveis = [
-    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Feitiçaria", "loja_id": 1, "descricao": "Feita com pena de fênix"},
+    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Varinhas", "loja_id": 1, "descricao": "Feita com pena de fênix"},
     {"id": 2, "nome": "Poção de Cura", "preco": 50.00, "categoria": "Poções", "loja_id": 1, "descricao": "Recupera vitalidade"},
-    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Feitiçaria", "loja_id": 1, "descricao": "Feitiços antigos"}
+    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Livros", "loja_id": 1, "descricao": "Feitiços antigos"},
+    {"id": 4, "nome": "Capa da Invisibilidade", "preco": 500.00, "categoria": "Vestes", "loja_id": 1, "descricao": "Torna o usuário invisível"},
+    {"id": 5, "nome": "Chave de Portal", "preco": 150.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Transporta para locais distantes"},
+    {"id": 6, "nome": "Espelho de Ojesed", "preco": 300.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Mostra o desejo mais profundo do coração"},
+    {"id": 7, "nome": "Livro de Poções Avançadas", "preco": 250.00, "categoria": "Livros", "loja_id": 1, "descricao": "Receitas de poções raras e poderosas"},
+    {"id": 8, "nome": "Vassoura Nimbus 2000", "preco": 800.00, "categoria": "Vassouras", "loja_id": 1, "descricao": "Vassoura de corrida de alta velocidade"},
+    {"id": 9, "nome": "Mapa do Maroto", "preco": 400.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Revela todos os segredos de Hogwarts"}
 ]
 
 
@@ -36,6 +61,12 @@ lojas = {
     }
 }
 
+# Atualiza os produtos para incluir o campo 'vendedor' com base no proprietário da loja
+for loja in lojas.values():
+    email_vendedor = loja['proprietario']
+    for produto in loja['produtos']:
+        produto['vendedor'] = email_vendedor
+
 # Gerador de IDs
 proximo_id_produto = 4
 proximo_id_loja = 2
@@ -48,30 +79,33 @@ def processar_mensagem(mensagem):
     if acao == 'login':
         email = mensagem.get('email')
         senha = mensagem.get('senha')
-        if email in usuarios and usuarios[email]['senha'] == senha:
-                    # Verificar se o usuário tem uma loja associada
-                    tem_loja = False
-                    for loja in lojas.values():
-                        if loja['proprietario'] == email:
-                            tem_loja = True
-                            break
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE email = ? AND senha = ?", (email, senha))
+        usuario = cursor.fetchone()
+        conn.close()
 
-                    # Retorna a resposta com a informação de se tem loja ou não
-                    return {
-                        'status': 'sucesso',
-                        'tem_loja': True,
-                        'usuario': {
-                            'email': email,
-                            'nome': usuarios[email]['nome'],
-                            'casa': usuarios[email]['casa'],
-                            'tipo_bruxo': usuarios[email]['tipo_bruxo'],
-                        },
-                    }
-        
-        elif email not in usuarios:
-            return {'erro': 'usuario_nao_encontrado'}
+        if usuario:
+            # Verifica se o usuário tem loja
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM lojas WHERE proprietario = ?", (email,))
+            loja = cursor.fetchone()
+            conn.close()
+
+            return {
+                'status': 'sucesso',
+                'tem_loja': loja is not None,
+                'usuario': {
+                    'email': usuario['email'],
+                    'nome': usuario['nome'],
+                    'casa': usuario['casa'],
+                    'tipo_bruxo': usuario['tipo_bruxo']
+                }
+            }
         else:
-            return {'erro': 'senha_incorreta'}
+            return {'erro': 'usuario_nao_encontrado_ou_senha_incorreta'}
+
 
     elif acao == 'cadastro':
         nome = mensagem.get('nome')
@@ -81,7 +115,19 @@ def processar_mensagem(mensagem):
         tipo_bruxo = mensagem.get('tipo_bruxo')
         if email in usuarios:
             return {'erro': 'email_ja_cadastrado'}
-        usuarios[email] = {"senha": senha, "nome": nome, "casa": casa, "tipo_bruxo": tipo_bruxo}
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
+        if cursor.fetchone():
+            conn.close()
+            return {'erro': 'email_ja_cadastrado'}
+
+        cursor.execute("""
+            INSERT INTO usuarios (email, senha, nome, casa, tipo_bruxo)
+            VALUES (?, ?, ?, ?, ?)
+        """, (email, senha, nome, casa, tipo_bruxo))
+        conn.commit()
+        conn.close()
         return {'status': 'sucesso'}
 
     elif acao == 'visualizar_loja':
@@ -92,42 +138,12 @@ def processar_mensagem(mensagem):
         else:
             return {'status': 'sucesso', 'produtos': produtos_disponiveis}
             
-    elif acao == 'atualizar_foto_perfil':
-        email = mensagem.get('email')
-        img_base64 = mensagem.get('imagem_base64')
-
-        print(f"Recebendo solicitação de atualizar foto de perfil para o usuário: {email}")
-
-        if not email or not img_base64:
-            print("Dados insuficientes para atualizar foto de perfil.")
-            return {'status': 'erro', 'erro': 'dados_incompletos'}
-
-        try:
-            img_bytes = base64.b64decode(img_base64)
-
-            pasta_perfis = 'fotos_perfil'
-            if not os.path.exists(pasta_perfis):
-                os.makedirs(pasta_perfis)
-
-            nome_arquivo = os.path.join(pasta_perfis, f"{email.replace('@', '_').replace('.', '_')}.png")
-
-            with open(nome_arquivo, 'wb') as f:
-                f.write(img_bytes)
-
-            print(f"Foto de perfil salva em: {nome_arquivo}")
-
-            return {'status': 'sucesso', 'mensagem': 'Foto de perfil atualizada'}
-
-        except Exception as e:
-            print(f"Erro ao salvar foto de perfil: {e}")
-            return {'status': 'erro', 'erro': 'falha_ao_salvar_imagem'}
         
     elif acao == 'atualizar_perfil':
         email = mensagem.get('email')
         nome = mensagem.get('nome')
         casa_hogwarts = mensagem.get('casa_hogwarts')
-        tipo_bruxo = mensagem.get('tipo_bruxo')
-        foto_perfil = mensagem.get('foto_perfil')  
+        tipo_bruxo = mensagem.get('tipo_bruxo') 
 
         print(f"Recebendo solicitação para atualizar perfil do usuário: {email}")
 
@@ -149,31 +165,10 @@ def processar_mensagem(mensagem):
             print(f"Casa de Hogwarts: {casa_hogwarts}")
             print(f"Tipo de Bruxo: {tipo_bruxo}")
             
-            if foto_perfil:
-                try:
-                    img_bytes = base64.b64decode(foto_perfil)
-                    
-                    pasta_perfis = 'fotos_perfil'
-                    if not os.path.exists(pasta_perfis):
-                        os.makedirs(pasta_perfis)
-                    
-                    nome_arquivo = os.path.join(pasta_perfis, f"{email.replace('@', '_').replace('.', '_')}.png")
-                    
-                    with open(nome_arquivo, 'wb') as f:
-                        f.write(img_bytes)
-                    
-                    usuarios[email]['foto_perfil'] = nome_arquivo
-                    
-                    print(f"Foto de perfil salva em: {nome_arquivo}")
-                    
-                except Exception as e:
-                    print(f"Erro ao salvar foto de perfil: {e}")
-            
             return {'status': 'sucesso', 'mensagem': 'Perfil atualizado com sucesso', 'dados': {
                 'nome': nome,
                 'casa': casa_hogwarts,
                 'tipo_bruxo': tipo_bruxo,
-                'foto_perfil': usuarios[email]['foto_perfil']
             }}
                 
         except Exception as e:
@@ -195,9 +190,6 @@ def processar_mensagem(mensagem):
             'casa': usuarios[email].get('casa', ''),
             'tipo_bruxo': usuarios[email].get('tipo_bruxo', '')
         }
-
-        if 'foto_perfil' in usuarios[email]:
-            dados_perfil['foto_perfil'] = usuarios[email]['foto_perfil']
         
         print(f"Enviando dados do perfil para o usuário: {email}")
         
