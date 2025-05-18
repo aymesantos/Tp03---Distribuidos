@@ -30,6 +30,7 @@ def iniciar_banco():
         preco REAL,
         estoque INTEGER,
         loja_id INTEGER,
+        categoria TEXT,
         FOREIGN KEY(loja_id) REFERENCES lojas(id)
     )""")
     # Compras
@@ -78,12 +79,12 @@ def listar_produtos_db(param=None):
     cur.execute("SELECT * FROM produtos WHERE estoque > 0")
     dados = cur.fetchall()
     con.close()
-    return {"status": "ok", "dados": [dict(zip(["id", "nome", "descricao", "preco", "estoque", "loja_id"], p)) for p in dados]}
+    return {"status": "ok", "dados": [dict(zip(["id", "nome", "descricao", "preco", "estoque", "loja_id", "categoria"], p)) for p in dados]}
 
-def cadastrar_produto_db(nome, descricao, preco, estoque, loja_id):
+def cadastrar_produto_db(nome, descricao, preco, estoque, loja_id, categoria):
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
-    cur.execute("INSERT INTO produtos (nome, descricao, preco, estoque, loja_id) VALUES (?, ?, ?, ?, ?)", (nome, descricao, preco, estoque, loja_id))
+    cur.execute("INSERT INTO produtos (nome, descricao, preco, estoque, loja_id, categoria) VALUES (?, ?, ?, ?, ?, ?)", (nome, descricao, preco, estoque, loja_id, categoria))
     con.commit()
     produto_id = cur.lastrowid
     con.close()
@@ -263,10 +264,10 @@ def adicionar_produto_carrinho(email, produto_id, quantidade=1):
     cur.execute("SELECT quantidade FROM carrinho WHERE email=? AND produto_id=?", (email, produto_id))
     row = cur.fetchone()
     if row:
-        # Sempre mantém a quantidade igual a 1
-        cur.execute("UPDATE carrinho SET quantidade = 1 WHERE email=? AND produto_id=?", (email, produto_id))
+        # Atualiza para a quantidade escolhida
+        cur.execute("UPDATE carrinho SET quantidade = ? WHERE email=? AND produto_id=?", (quantidade, email, produto_id))
     else:
-        cur.execute("INSERT INTO carrinho (email, produto_id, quantidade) VALUES (?, ?, ?)", (email, produto_id, 1))
+        cur.execute("INSERT INTO carrinho (email, produto_id, quantidade) VALUES (?, ?, ?)", (email, produto_id, quantidade))
     con.commit()
     con.close()
     return {"status": "ok"}

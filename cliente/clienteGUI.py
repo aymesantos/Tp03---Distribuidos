@@ -48,6 +48,19 @@ class ProdutoItem(QWidget):
         descricao.setFont(QFont(FONTE_PRINCIPAL, 9))
         descricao.setWordWrap(True)
 
+        # Exibir estoque
+        estoque = self.produto.get('estoque', 0)
+        estoque_label = QLabel(f"Estoque: {estoque}")
+        info_layout.addWidget(estoque_label)
+
+        # Campo para escolher quantidade (apenas no modo comprar)
+        if self.modo == 'comprar':
+            self.quantidade_spin = QSpinBox()
+            self.quantidade_spin.setMinimum(1)
+            self.quantidade_spin.setMaximum(estoque)
+            self.quantidade_spin.setValue(1)
+            info_layout.addWidget(self.quantidade_spin)
+
         info_layout.addWidget(titulo)
         info_layout.addWidget(preco)
         info_layout.addWidget(descricao)
@@ -55,7 +68,7 @@ class ProdutoItem(QWidget):
         # Botão de ação
         if self.modo == 'comprar':
             acao_btn = QPushButton("Adicionar ao Carrinho")
-            acao_btn.clicked.connect(lambda: self.comprar_clicado.emit(self.produto))
+            acao_btn.clicked.connect(lambda: self.comprar_clicado.emit({'produto': self.produto, 'quantidade': self.quantidade_spin.value()}))
         else: 
             acao_btn = QPushButton("Editar")
             acao_btn.clicked.connect(lambda: self.editar_clicado.emit(self.produto))
@@ -942,8 +955,10 @@ class JanelaMarketplace(QWidget):
             categoria = None
         self.carregar_produtos(categoria=categoria)
     
-    def adicionar_ao_carrinho(self, produto):
+    def adicionar_ao_carrinho(self, produto_info):
         """Adiciona um produto ao carrinho de compras"""
+        produto = produto_info['produto']
+        quantidade = produto_info['quantidade']
         produto_id = produto['id']
 
         for item in self.carrinho:
@@ -951,9 +966,11 @@ class JanelaMarketplace(QWidget):
                 QMessageBox.information(self, "Aviso", "Este produto já está no seu carrinho.")
                 return
 
-        resposta = self.cliente.adicionar_ao_carrinho(produto_id)
+        resposta = self.cliente.adicionar_ao_carrinho(produto_id, quantidade)
         if resposta and resposta.get('status') == 'sucesso':
-            self.carrinho.append(produto)
+            produto_carrinho = produto.copy()
+            produto_carrinho['quantidade'] = quantidade
+            self.carrinho.append(produto_carrinho)
             QMessageBox.information(self, "Sucesso", f"'{produto['nome']}' adicionado ao carrinho!")
             self.carrinho_btn.setText(f"Carrinho ({len(self.carrinho)})")
         else:
@@ -1111,7 +1128,7 @@ class JanelaCarrinho(QDialog):
                 linha.setFrameShadow(QFrame.Shadow.Sunken)
                 self.itens_layout.addWidget(linha)
                 
-                total += float(produto['preco'])
+                total += float(produto['preco']) * produto.get('quantidade', 1)
             
             scroll_area.setWidget(scroll_widget)
             layout.addWidget(scroll_area)
@@ -1148,8 +1165,13 @@ class JanelaCarrinho(QDialog):
         preco = QLabel(f"R$ {float(produto['preco']):.2f}")
         preco.setFont(QFont(FONTE_PRINCIPAL, 11))
         
+        quantidade = produto.get('quantidade', 1)
+        quantidade_label = QLabel(f"Qtd: {quantidade}")
+        quantidade_label.setFont(QFont(FONTE_PRINCIPAL, 11))
+        
         info_layout.addWidget(titulo)
         info_layout.addWidget(preco)
+        info_layout.addWidget(quantidade_label)
         
         layout.addWidget(info_widget, 1)
         
@@ -1177,9 +1199,7 @@ class JanelaCarrinho(QDialog):
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
-            # Garante que cada produto será comprado com quantidade 1
-            for produto in self.carrinho:
-                produto['quantidade'] = 1
+            # Quantidade já está definida pelo usuário
             resposta = self.cliente.finalizar_compra()
             
             if resposta and resposta.get('status') == 'sucesso':

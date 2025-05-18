@@ -56,7 +56,8 @@ def cadastrar_produto(param):
     preco = param.get("preco")
     estoque = param.get("estoque")
     loja_id = param.get("loja_id")
-    return cadastrar_produto_db(nome, descricao, preco, estoque, loja_id)
+    categoria = param.get("categoria")
+    return cadastrar_produto_db(nome, descricao, preco, estoque, loja_id, categoria)
 
 def cadastrar_produto_sqlite(nome, descricao, preco, estoque, loja_id):
     return cadastrar_produto(nome, descricao, preco, estoque, loja_id)
