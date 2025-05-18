@@ -193,14 +193,12 @@ class Cliente:
                 'casa': casa, 
                 'email': email, 
                 'senha': senha, 
-                'tipo_bruxo': tipo_bruxo
+                'tipo': tipo_bruxo
             }
             return self.enviar_mensagem(mensagem)
         
         if callback:
-            return self.executar_operacao(operacao_cadastro, callback, 
-                                        nome=nome, casa=casa, email=email, 
-                                        senha=senha, tipo_bruxo=tipo_bruxo)
+            return self.executar_operacao(operacao_cadastro, callback, nome=nome, casa=casa, email=email, senha=senha, tipo_bruxo=tipo_bruxo)
         else:
             return operacao_cadastro(nome, casa, email, senha, tipo_bruxo)
     

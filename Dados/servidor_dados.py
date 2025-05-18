@@ -11,10 +11,11 @@ def cadastrar_usuario_op(param):
     email = param.get("email")
     senha = param.get("senha")
     tipo = param.get("tipo", "cliente")
-    return cadastrar_usuario_sqlite(nome, email, senha, tipo)
+    casa = param.get("casa", "")
+    return cadastrar_usuario_sqlite(nome, email, senha, tipo, casa)
 
-def cadastrar_usuario_sqlite(nome, email, senha, tipo):
-    return cadastrar_usuario(nome, email, senha, tipo)
+def cadastrar_usuario_sqlite(nome, email, senha, tipo, casa):
+    return cadastrar_usuario(nome, email, senha, tipo, casa)
 
 def autenticar_usuario_op(param):
     email = param.get("email")

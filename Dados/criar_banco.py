@@ -10,10 +10,10 @@ if __name__ == "__main__":
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
 
-    # Inserir usuários
-    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)", ("Harry Potter", "harry@hogwarts.com", "senha123", "cliente"))
-    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)", ("Hermione Granger", "hermione@hogwarts.com", "senha123", "cliente"))
-    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)", ("Loja do Dumbledore", "dumbledore@hogwarts.com", "senha123", "vendedor"))
+    # Inserir usuários (agora com campo casa)
+    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo, casa) VALUES (?, ?, ?, ?, ?)", ("Harry Potter", "harry@hogwarts.com", "senha123", "cliente", "Grifinória"))
+    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo, casa) VALUES (?, ?, ?, ?, ?)", ("Hermione Granger", "hermione@hogwarts.com", "senha123", "cliente", "Grifinória"))
+    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo, casa) VALUES (?, ?, ?, ?, ?)", ("Loja do Dumbledore", "dumbledore@hogwarts.com", "senha123", "vendedor", "Grifinória"))
 
     # Inserir loja
     cur.execute("INSERT INTO lojas (nome, descricao, usuario_id) VALUES (?, ?, ?)", ("Beco Diagonal", "Loja de artigos mágicos", 3))

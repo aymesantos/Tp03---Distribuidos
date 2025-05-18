@@ -12,7 +12,8 @@ def iniciar_banco():
         nome TEXT,
         email TEXT UNIQUE,
         senha TEXT,
-        tipo TEXT
+        tipo TEXT,
+        casa TEXT
     )""")
     # Lojas
     cur.execute("""CREATE TABLE IF NOT EXISTS lojas (
@@ -105,10 +106,10 @@ def autenticar_usuario(email, senha):
         print("[DEBUG] Usuário ou senha inválidos")
         return {"status": "erro", "mensagem": "Usuário ou senha inválidos"}
 
-def cadastrar_usuario(nome, email, senha, tipo):
+def cadastrar_usuario(nome, email, senha, tipo, casa):
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
-    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)", (nome, email, senha, tipo))
+    cur.execute("INSERT INTO usuarios (nome, email, senha, tipo, casa) VALUES (?, ?, ?, ?, ?)", (nome, email, senha, tipo, casa))
     con.commit()
     usuario_id = cur.lastrowid
     con.close()
@@ -121,7 +122,7 @@ def buscar_usuario(usuario_id):
     usuario = cur.fetchone()
     con.close()
     if usuario:
-        return {"status": "ok", "usuario": {"id": usuario[0], "nome": usuario[1], "email": usuario[2], "tipo": usuario[4]}}
+        return {"status": "ok", "usuario": {"id": usuario[0], "nome": usuario[1], "email": usuario[2], "tipo": usuario[4], "casa": usuario[5]}}
     else:
         return {"status": "erro", "mensagem": "Usuário não encontrado"}
 
@@ -298,6 +299,6 @@ def buscar_usuario_por_email(email):
     usuario = cur.fetchone()
     con.close()
     if usuario:
-        return {"status": "ok", "usuario": {"id": usuario[0], "nome": usuario[1], "email": usuario[2], "tipo": usuario[4]}}
+        return {"status": "ok", "usuario": {"id": usuario[0], "nome": usuario[1], "email": usuario[2], "tipo": usuario[4], "casa": usuario[5]}}
     else:
         return {"status": "erro", "mensagem": "Usuário não encontrado"}

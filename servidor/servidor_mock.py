@@ -140,21 +140,16 @@ def processar_mensagem(mensagem):
 
     elif acao == 'obter_perfil':
         email = mensagem.get('email')
-
-        if not email:
-            return {'status': 'erro', 'erro': 'email_nao_fornecido'}
-
-        if email not in usuarios:
-            return {'status': 'erro', 'erro': 'usuario_nao_encontrado'}
-
+        # Buscar usuário pelo e-mail no backend de dados
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': email})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario = resposta_usuario.get('usuario')
         dados_perfil = {
-            'nome': usuarios[email].get('nome', ''),
-            'casa': usuarios[email].get('casa', ''),
-            'tipo_bruxo': usuarios[email].get('tipo_bruxo', '')
+            'nome': usuario.get('nome', ''),
+            'casa_hogwarts': usuario.get('casa', ''),
+            'tipo_bruxo': usuario.get('tipo', '')
         }
-
-        print(f"Enviando dados do perfil para o usuário: {email}")
-
         return {
             'status': 'sucesso',
             'dados_perfil': dados_perfil
