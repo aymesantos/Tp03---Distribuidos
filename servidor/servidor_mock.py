@@ -2,141 +2,100 @@ import socket
 import json
 import os
 import base64
-import sqlite3
 
-# Caminho para o banco de dados na pasta Dados
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'Dados', 'banco.db')
+# Função utilitária para comunicação com o servidor de dados
+DADOS_HOST = 'localhost'
+DADOS_PORTA = 5003
 
-def get_db_connection():
+def requisitar_dados(operacao, parametros):
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        print(f"Conexão com o banco de dados estabelecida!")
-        return conn
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(5)
+            try:
+                s.connect((DADOS_HOST, DADOS_PORTA))
+            except Exception as e:
+                print(f"[ERRO] Falha ao conectar ao servidor de dados: {e}")
+                return {'status': 'erro', 'mensagem': f'Falha ao conectar ao servidor de dados: {e}'}
+            mensagem = json.dumps({"operacao": operacao, "parametros": parametros})
+            try:
+                s.sendall(mensagem.encode())
+            except Exception as e:
+                print(f"[ERRO] Falha ao enviar dados para o servidor de dados: {e}")
+                return {'status': 'erro', 'mensagem': f'Falha ao enviar dados para o servidor de dados: {e}'}
+            try:
+                resposta = s.recv(4096)
+                if not resposta:
+                    print("[ERRO] Resposta vazia do servidor de dados")
+                    return {'status': 'erro', 'mensagem': 'Resposta vazia do servidor de dados'}
+                return json.loads(resposta.decode())
+            except Exception as e:
+                print(f"[ERRO] Falha ao receber resposta do servidor de dados: {e}")
+                return {'status': 'erro', 'mensagem': f'Falha ao receber resposta do servidor de dados: {e}'}
     except Exception as e:
-        print(f"Erro ao conectar ao banco de dados: {e}")
-        return None
-
-# Mock de dados
-usuarios = {
-    "ayme@gmail.com": {
-        "senha": "senha123",
-        "nome": "Ayme Faustino",
-        "casa": "Grifinória",
-        "tipo_bruxo": "Sangue-Puro",
-    },
-    "pedro@gmail.com": {
-        "senha": "senha456",
-        "nome": "Pedro Augusto",
-        "casa": "Sonserina",
-        "tipo_bruxo": "Sangue-Puro",
-    }
-}
-
-produtos_disponiveis = [
-    {"id": 1, "nome": "Varinha Mágica", "preco": 100.00, "categoria": "Varinhas", "loja_id": 1, "descricao": "Feita com pena de fênix"},
-    {"id": 2, "nome": "Poção de Cura", "preco": 50.00, "categoria": "Poções", "loja_id": 1, "descricao": "Recupera vitalidade"},
-    {"id": 3, "nome": "Grimório de Feitiços", "preco": 200.00, "categoria": "Livros", "loja_id": 1, "descricao": "Feitiços antigos"},
-    {"id": 4, "nome": "Capa da Invisibilidade", "preco": 500.00, "categoria": "Vestes", "loja_id": 1, "descricao": "Torna o usuário invisível"},
-    {"id": 5, "nome": "Chave de Portal", "preco": 150.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Transporta para locais distantes"},
-    {"id": 6, "nome": "Espelho de Ojesed", "preco": 300.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Mostra o desejo mais profundo do coração"},
-    {"id": 7, "nome": "Livro de Poções Avançadas", "preco": 250.00, "categoria": "Livros", "loja_id": 1, "descricao": "Receitas de poções raras e poderosas"},
-    {"id": 8, "nome": "Vassoura Nimbus 2000", "preco": 800.00, "categoria": "Vassouras", "loja_id": 1, "descricao": "Vassoura de corrida de alta velocidade"},
-    {"id": 9, "nome": "Mapa do Maroto", "preco": 400.00, "categoria": "Artefatos", "loja_id": 1, "descricao": "Revela todos os segredos de Hogwarts"}
-]
-
-
-historico_compras = {}  # chave: email do cliente, valor: lista de compras
-historico_vendas = {}   # chave: email do vendedor, valor: lista de vendas
-carrinho = {}  # carrinho[email] = [produto]
-transacoes = []  # Lista de transações realizadas
-# Mock de lojas
-lojas = {
-    1: {
-        "id": 1,
-        "nome": "Loja do Bruxo Mestre",
-        "descricao": "Especializada em artigos mágicos raros.",
-        "proprietario": "ayme@gmail.com",
-        "produtos": produtos_disponiveis
-    }
-}
-
-# Atualiza os produtos para incluir o campo 'vendedor' com base no proprietário da loja
-for loja in lojas.values():
-    email_vendedor = loja['proprietario']
-    for produto in loja['produtos']:
-        produto['vendedor'] = email_vendedor
-
-# Gerador de IDs
-proximo_id_produto = 4
-proximo_id_loja = 2
+        print(f"[ERRO] Erro inesperado na comunicação com servidor de dados: {e}")
+        return {'status': 'erro', 'mensagem': f'Erro inesperado na comunicação com servidor de dados: {e}'}
 
 def processar_mensagem(mensagem):
-    global proximo_id_produto, proximo_id_loja
-
     acao = mensagem.get('acao')
 
     if acao == 'login':
         email = mensagem.get('email')
         senha = mensagem.get('senha')
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios WHERE email = ? AND senha = ?", (email, senha))
-        usuario = cursor.fetchone()
-        conn.close()
-
-        if usuario:
-            # Verifica se o usuário tem loja
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM lojas WHERE proprietario = ?", (email,))
-            loja = cursor.fetchone()
-            conn.close()
-
-            return {
-                'status': 'sucesso',
-                'tem_loja': loja is not None,
-                'usuario': {
-                    'email': usuario['email'],
-                    'nome': usuario['nome'],
-                    'casa': usuario['casa'],
-                    'tipo_bruxo': usuario['tipo_bruxo']
-                }
+        resposta = requisitar_dados('autenticar_usuario', {'email': email, 'senha': senha})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao autenticar usuário') if resposta else 'Erro ao autenticar usuário'}
+        usuario = resposta['usuario']
+        # Verifica se o usuário tem loja
+        resposta_loja = requisitar_dados('listar_lojas', {})
+        tem_loja = False
+        if resposta_loja.get('status') == 'ok':
+            for loja in resposta_loja['lojas']:
+                if loja['usuario_id'] == usuario['id']:
+                    tem_loja = True
+                    break
+        return {
+            'status': 'sucesso',
+            'tem_loja': tem_loja,
+            'usuario': {
+                'email': usuario['email'],
+                'nome': usuario['nome'],
+                'casa': usuario.get('casa', ''),
+                'tipo_bruxo': usuario.get('tipo', '')
             }
-        else:
-            return {'erro': 'usuario_nao_encontrado_ou_senha_incorreta'}
-
+        }
 
     elif acao == 'cadastro':
         nome = mensagem.get('nome')
         casa = mensagem.get('casa')
         email = mensagem.get('email')
         senha = mensagem.get('senha')
-        tipo_bruxo = mensagem.get('tipo_bruxo')
-        if email in usuarios:
+        tipo_bruxo = mensagem.get('tipo_bruxo', 'cliente')
+        resposta = requisitar_dados('cadastrar_usuario', {
+            'nome': nome,
+            'email': email,
+            'senha': senha,
+            'tipo': tipo_bruxo
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao cadastrar usuário') if resposta else 'Erro ao cadastrar usuário'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso'}
+        elif resposta.get('mensagem', '').startswith('UNIQUE constraint failed: usuarios.email'):
             return {'erro': 'email_ja_cadastrado'}
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
-        if cursor.fetchone():
-            conn.close()
-            return {'erro': 'email_ja_cadastrado'}
-
-        cursor.execute("""
-            INSERT INTO usuarios (email, senha, nome, casa, tipo_bruxo)
-            VALUES (?, ?, ?, ?, ?)
-        """, (email, senha, nome, casa, tipo_bruxo))
-        conn.commit()
-        conn.close()
-        return {'status': 'sucesso'}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     elif acao == 'visualizar_loja':
         categoria = mensagem.get('categoria')
+        resposta = requisitar_dados('listar_produtos', {})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao listar produtos') if resposta else 'Erro ao listar produtos'}
+        produtos = resposta.get('dados', [])
         if categoria:
-            produtos_filtrados = [p for p in produtos_disponiveis if p['categoria'].lower() == categoria.lower()]
+            produtos_filtrados = [p for p in produtos if p.get('categoria', '').lower() == categoria.lower()]
             return {'status': 'sucesso', 'produtos': produtos_filtrados}
         else:
-            return {'status': 'sucesso', 'produtos': produtos_disponiveis}
+            return {'status': 'sucesso', 'produtos': produtos}
             
         
     elif acao == 'atualizar_perfil':
@@ -203,39 +162,50 @@ def processar_mensagem(mensagem):
 
     elif acao == 'obter_loja':
         email = mensagem.get('email')
-        print(f"Recebendo solicitação de obter loja com email: {email}")
-        
-        loja = None
-        for loja_data in lojas.values():
-            if loja_data['proprietario'] == email:
-                loja = loja_data
-                break
-        
+        # Buscar usuário pelo e-mail
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': email})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario = resposta_usuario.get('usuario')
+        usuario_id = usuario['id']
+        resposta_lojas = requisitar_dados('listar_lojas', {})
+        if not resposta_lojas or resposta_lojas.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_lojas.get('mensagem', 'Erro ao listar lojas') if resposta_lojas else 'Erro ao listar lojas'}
+        loja = next((l for l in resposta_lojas.get('lojas', []) if l['usuario_id'] == usuario_id), None)
         if loja:
-            print(f"Loja encontrada: {loja}")
+            resposta_produtos = requisitar_dados('listar_produtos', {})
+            if not resposta_produtos or resposta_produtos.get('status') == 'erro':
+                return {'status': 'erro', 'mensagem': resposta_produtos.get('mensagem', 'Erro ao listar produtos da loja') if resposta_produtos else 'Erro ao listar produtos da loja'}
+            produtos = [p for p in resposta_produtos.get('dados', []) if p['loja_id'] == loja['id']]
             return {
                 'status': 'sucesso',
+                'id': loja.get('id'),
                 'nome_loja': loja.get('nome'),
                 'descricao': loja.get('descricao'),
-                'produtos': loja.get('produtos', [])
+                'produtos': produtos
             }
         else:
-            print("Loja não encontrada.")
             return {'erro': 'loja_nao_encontrada'}
 
     elif acao == 'criar_loja':
-        nome = mensagem.get('nome')
+        nome = mensagem.get('nome') or mensagem.get('nome_loja')
         descricao = mensagem.get('descricao')
         proprietario = mensagem.get('email')
-        nova_loja = {
-            "id": proximo_id_loja,
-            "nome": nome,
-            "descricao": descricao,
-            "proprietario": proprietario
-        }
-        lojas[proximo_id_loja] = nova_loja
-        proximo_id_loja += 1
-        return {'status': 'sucesso', 'loja': nova_loja}
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': proprietario})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario_id = resposta_usuario['usuario']['id']
+        resposta = requisitar_dados('cadastrar_loja', {
+            'nome': nome,
+            'descricao': descricao,
+            'usuario_id': usuario_id
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao cadastrar loja') if resposta else 'Erro ao cadastrar loja'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso', 'loja': resposta.get('loja', {})}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     elif acao == 'criar_produto':
         nome = mensagem.get('nome')
@@ -243,18 +213,21 @@ def processar_mensagem(mensagem):
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
         loja_id = mensagem.get('loja_id')
-
-        novo_produto = {
-            "id": proximo_id_produto,
-            "nome": nome,
-            "preco": preco,
-            "categoria": categoria,
-            "descricao": descricao,
-            "loja_id": loja_id,
-        }
-        produtos_disponiveis.append(novo_produto)
-        proximo_id_produto += 1
-        return {'status': 'sucesso', 'produto': novo_produto}
+        estoque = mensagem.get('estoque', 1)
+        resposta = requisitar_dados('cadastrar_produto', {
+            'nome': nome,
+            'descricao': descricao,
+            'preco': preco,
+            'estoque': estoque,
+            'loja_id': loja_id,
+            'categoria': categoria
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao cadastrar produto') if resposta else 'Erro ao cadastrar produto'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso', 'produto': resposta}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     elif acao == 'editar_produto':
         produto_id = mensagem.get('produto_id')
@@ -262,188 +235,181 @@ def processar_mensagem(mensagem):
         preco = mensagem.get('preco')
         categoria = mensagem.get('categoria')
         descricao = mensagem.get('descricao')
-
-        produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
-        if produto:
-            produto['nome'] = nome
-            produto['preco'] = preco
-            produto['categoria'] = categoria
-            produto['descricao'] = descricao
-            return {'status': 'sucesso', 'produto_editado': produto}
+        estoque = mensagem.get('estoque', 1)
+        resposta = requisitar_dados('editar_produto', {
+            'id': produto_id,
+            'nome': nome,
+            'descricao': descricao,
+            'preco': preco,
+            'estoque': estoque
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao editar produto') if resposta else 'Erro ao editar produto'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso'}
         else:
-            return {'erro': 'produto_nao_encontrado'}
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     
     elif acao == 'listar_meus_produtos':
         email = mensagem.get('email')
-        print(f"Solicitação para listar produtos da loja do usuário: {email}")
-
-        # Buscar a loja correspondente ao email
-        loja_encontrada = None
-        for loja in lojas.values():
-            if loja['proprietario'] == email:
-                loja_encontrada = loja
-                break
-
-        if loja_encontrada:
-            return {
-                'status': 'sucesso',
-                'produtos': loja_encontrada.get('produtos', [])
-            }
-        else:
-            return {
-                'status': 'erro',
-                'mensagem': 'Loja não encontrada para este email.'
-            }
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': email})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario_id = resposta_usuario['usuario']['id']
+        resposta_lojas = requisitar_dados('listar_lojas', {})
+        if not resposta_lojas or resposta_lojas.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_lojas.get('mensagem', 'Erro ao listar lojas') if resposta_lojas else 'Erro ao listar lojas'}
+        lojas_usuario = [l for l in resposta_lojas.get('lojas', []) if l['usuario_id'] == usuario_id]
+        produtos = []
+        for loja in lojas_usuario:
+            resposta_produtos = requisitar_dados('listar_produtos', {})
+            if not resposta_produtos or resposta_produtos.get('status') == 'erro':
+                return {'status': 'erro', 'mensagem': resposta_produtos.get('mensagem', 'Erro ao listar produtos da loja') if resposta_produtos else 'Erro ao listar produtos da loja'}
+            produtos += [p for p in resposta_produtos.get('dados', []) if p['loja_id'] == loja['id']]
+        return {'status': 'sucesso', 'produtos': produtos}
 
     elif acao == 'visualizar_produtos_loja':
         loja_id = mensagem.get('loja_id')
-        produtos = [p for p in produtos_disponiveis if p['loja_id'] == loja_id]
+        resposta = requisitar_dados('listar_produtos', {})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao listar produtos da loja') if resposta else 'Erro ao listar produtos da loja'}
+        produtos = [p for p in resposta.get('dados', []) if p['loja_id'] == loja_id]
         return {'status': 'sucesso', 'produtos': produtos}
     
 
     elif acao == 'adicionar_produto_carrinho':
         email = mensagem.get('email')
         produto_id = mensagem.get('produto_id')
-
-        if email not in carrinho:
-            carrinho[email] = []
-
-        produto = next((p for p in produtos_disponiveis if p['id'] == produto_id), None)
-
-        if produto:
-            loja_id = produto.get('loja_id')
-            email_vendedor = lojas.get(loja_id, {}).get('proprietario', 'desconhecido@exemplo.com')
-
-            produto_com_vendedor = produto.copy()
-            produto_com_vendedor['vendedor'] = email_vendedor
-
-            carrinho[email].append(produto_com_vendedor)
-
-            return {'status': 'sucesso', 'produto_adicionado': produto_com_vendedor}
+        quantidade = mensagem.get('quantidade', 1)
+        resposta = requisitar_dados('adicionar_produto_carrinho', {
+            'email': email,
+            'produto_id': produto_id,
+            'quantidade': quantidade
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao adicionar produto ao carrinho') if resposta else 'Erro ao adicionar produto ao carrinho'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso'}
         else:
-            return {'erro': 'produto_nao_encontrado'}
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
 
     elif acao == 'visualizar_carrinho':
         email = mensagem.get('email')
-        return {'status': 'sucesso', 'carrinho': carrinho.get(email, [])}
+        resposta = requisitar_dados('visualizar_carrinho', {'email': email})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao visualizar carrinho') if resposta else 'Erro ao visualizar carrinho'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso', 'carrinho': resposta.get('carrinho', [])}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
 
     elif acao == 'finalizar_compra':
         email = mensagem.get('email')
         metodo_pagamento = 'galeao'
-
-        if not email or email not in carrinho or not carrinho[email]:
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': email})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario_id = resposta_usuario['usuario']['id']
+        resposta_carrinho = requisitar_dados('visualizar_carrinho', {'email': email})
+        if not resposta_carrinho or resposta_carrinho.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_carrinho.get('mensagem', 'Erro ao buscar carrinho') if resposta_carrinho else 'Erro ao buscar carrinho'}
+        itens = resposta_carrinho.get('carrinho', [])
+        if not itens:
             return {'erro': 'carrinho_vazio'}
-
-        itens = carrinho[email]
-        carrinho[email] = []
-
-        data_hoje = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
+        # Buscar preços dos produtos
+        resposta_produtos = requisitar_dados('listar_produtos', {})
+        if not resposta_produtos or resposta_produtos.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_produtos.get('mensagem', 'Erro ao buscar produtos') if resposta_produtos else 'Erro ao buscar produtos'}
+        produtos = resposta_produtos.get('dados', [])
+        produtos_dict = {p['id']: p for p in produtos}
+        itens_completos = []
         for item in itens:
-            nome_produto = item.get('nome', 'Produto desconhecido')
-            preco = item.get('preco', 0.0)
-            email_vendedor = item.get('vendedor', 'desconhecido@exemplo.com')
-
-            nome_vendedor = usuarios.get(email_vendedor, {}).get('nome', 'Desconhecido')
-            nome_comprador = usuarios.get(email, {}).get('nome', 'Desconhecido')
-
-            compra = {
-                'produto': nome_produto,
-                'valor': preco,
-                'data': data_hoje,
-                'usuario': nome_vendedor, 
-                'metodo_pagamento': metodo_pagamento
-            }
-            historico_compras.setdefault(email, []).append(compra)
-
-            venda = {
-                'produto': nome_produto,
-                'valor': preco,
-                'data': data_hoje,
-                'usuario': nome_comprador, 
-                'metodo_pagamento': metodo_pagamento
-            }
-            historico_vendas.setdefault(email_vendedor, []).append(venda)
-
-            transacao = {
-                'produto': nome_produto,
-                'quantidade': 1,
-                'total': preco,
-                'data': data_hoje,
-                'comprador_email': email,
-                'vendedor_email': email_vendedor
-            }
-            transacoes.append(transacao)
-
-        return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
+            produto_id = item['produto_id']
+            quantidade = item['quantidade']
+            preco_unitario = produtos_dict.get(produto_id, {}).get('preco', 0)
+            itens_completos.append({
+                'produto_id': produto_id,
+                'quantidade': quantidade,
+                'preco_unitario': preco_unitario
+            })
+        resposta = requisitar_dados('comprar_produto', {
+            'cliente_id': usuario_id,
+            'itens': itens_completos
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao finalizar compra') if resposta else 'Erro ao finalizar compra'}
+        if resposta.get('status') == 'ok':
+            # Esvaziar o carrinho do usuário após a compra
+            requisitar_dados('remover_produto_carrinho', {'email': email, 'produto_id': None})
+            return {'status': 'sucesso', 'mensagem': 'Compra realizada com sucesso'}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     
     elif acao == 'listar_produtos':
         filtros = mensagem.get('filtros', {})
+        resposta = requisitar_dados('listar_produtos', {})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao listar produtos') if resposta else 'Erro ao listar produtos'}
+        produtos = resposta.get('dados', [])
         categoria = filtros.get('categoria')
         termo_busca = filtros.get('termo_busca')
-
-        print(f"[SERVIDOR] Listando produtos - Categoria: {categoria}, Termo de busca: {termo_busca}")
-        print(f"[SERVIDOR] Produtos disponíveis: {len(produtos_disponiveis)}")
-
-        produtos_filtrados = produtos_disponiveis.copy()
-
+        produtos_filtrados = produtos
         if categoria:
             produtos_filtrados = [p for p in produtos_filtrados if p.get('categoria', '').lower() == categoria.lower()]
-            print(f"[SERVIDOR] Após filtro por categoria ({categoria}): {len(produtos_filtrados)} produtos")
-            
         if termo_busca:
             termo = termo_busca.lower()
             produtos_filtrados = [
                 p for p in produtos_filtrados
                 if termo in p.get('nome', '').lower() or termo in p.get('descricao', '').lower()
-                
             ]
-            print(f"[SERVIDOR] Após filtro por termo de busca ({termo}): {len(produtos_filtrados)} produtos")
         return {'status': 'sucesso', 'produtos': produtos_filtrados}
 
     
     elif acao == 'historico_compras':
         email = mensagem.get('email')
-
-        compras_usuario = []
-        for transacao in transacoes:
-            if transacao.get('comprador_email') == email:
-                vendedor_email = transacao.get('vendedor_email', None)
-                nome_vendedor = usuarios.get(vendedor_email, {}).get('nome', 'Desconhecido')
-
-                compras_usuario.append({
-                    'produto': transacao['produto'],
-                    'quantidade': transacao['quantidade'],
-                    'valor': transacao['total'],
-                    'data': transacao['data'],
-                    'usuario': nome_vendedor 
-                })
-
-        return {'status': 'sucesso', 'compras': compras_usuario}
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': email})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario_id = resposta_usuario['usuario']['id']
+        resposta = requisitar_dados('listar_compras_cliente', {'cliente_id': usuario_id})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao buscar histórico de compras') if resposta else 'Erro ao buscar histórico de compras'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso', 'compras': resposta.get('compras', [])}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     elif acao == 'historico_vendas':
         email = mensagem.get('email')
+        resposta_usuario = requisitar_dados('buscar_usuario', {'email': email})
+        if not resposta_usuario or resposta_usuario.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta_usuario.get('mensagem', 'Erro ao buscar usuário') if resposta_usuario else 'Erro ao buscar usuário'}
+        usuario_id = resposta_usuario['usuario']['id']
+        resposta = requisitar_dados('listar_vendas_vendedor', {'usuario_id': usuario_id})
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao buscar histórico de vendas') if resposta else 'Erro ao buscar histórico de vendas'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso', 'vendas': resposta.get('vendas', [])}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
-        vendas_usuario = []
-        for transacao in transacoes:
-            if transacao.get('vendedor_email') == email:
-                comprador_email = transacao.get('comprador_email', None)
-                nome_comprador = usuarios.get(comprador_email, {}).get('nome', 'Desconhecido')
-
-                vendas_usuario.append({
-                    'produto': transacao['produto'],
-                    'quantidade': transacao['quantidade'],
-                    'valor': transacao['total'],
-                    'data': transacao['data'],
-                    'usuario': nome_comprador 
-                })
-
-        return {'status': 'sucesso', 'vendas': vendas_usuario}
-
-
+    elif acao == 'remover_produto_carrinho':
+        email = mensagem.get('email')
+        produto_id = mensagem.get('produto_id')
+        resposta = requisitar_dados('remover_produto_carrinho', {
+            'email': email,
+            'produto_id': produto_id
+        })
+        if not resposta or resposta.get('status') == 'erro':
+            return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao remover produto do carrinho') if resposta else 'Erro ao remover produto do carrinho'}
+        if resposta.get('status') == 'ok':
+            return {'status': 'sucesso'}
+        else:
+            return {'erro': resposta.get('mensagem', 'erro_desconhecido')}
 
     return {'erro': 'acao_invalida'}
 

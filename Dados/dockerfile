@@ -1,0 +1,22 @@
+# Use uma imagem base do Python
+FROM python:3.9-slim
+
+# Crie e defina o diretório de trabalho dentro do container
+WORKDIR /app
+
+# Copie os arquivos do projeto para o container
+COPY . /app/
+
+# Instale as dependências do sistema (se necessário)
+RUN apt-get update && apt-get install -y \
+    libsqlite3-0
+
+# Instale dependências Python, se houver requirements.txt
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt || true
+
+# Exponha a porta que o servidor de dados vai usar
+EXPOSE 5003
+
+# Comando para rodar o servidor de dados
+CMD ["python", "servidor_dados.py"] 

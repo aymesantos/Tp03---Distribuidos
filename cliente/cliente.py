@@ -229,7 +229,8 @@ class Cliente:
             mensagem = {
                 'acao': 'criar_loja',
                 'nome_loja': nome_loja,
-                'descricao': descricao
+                'descricao': descricao,
+                'email': self.usuario_logado['email']
             }
             return self.enviar_mensagem(mensagem)
         
@@ -266,6 +267,7 @@ class Cliente:
             if resposta and resposta.get('status') == 'sucesso':
                 return {
                     'status': resposta['status'],
+                    'id': resposta['id'],
                     'nome_loja': resposta['nome_loja'],
                     'descricao': resposta['descricao'],
                     'produtos': resposta.get('produtos', [])
@@ -279,9 +281,9 @@ class Cliente:
     
     # GERENCIAMENTO DE PRODUTOS
     
-    def criar_produto(self, nome, descricao, preco, categoria, caminho_imagem=None, callback=None):
+    def criar_produto(self, nome, descricao, preco, categoria, loja_id, caminho_imagem=None, callback=None):
         """Cria um novo anúncio de produto (RF013)"""
-        def operacao_criar_produto(nome, descricao, preco, categoria, caminho_imagem):
+        def operacao_criar_produto(nome, descricao, preco, categoria, loja_id, caminho_imagem):
             imagens_base64 = None
 
             if caminho_imagem:
@@ -298,6 +300,7 @@ class Cliente:
                 'descricao': descricao,
                 'preco': preco,
                 'categoria': categoria,
+                'loja_id': loja_id,
                 'imagens_base64': imagens_base64
             }
             return self.enviar_mensagem(mensagem)
@@ -306,9 +309,9 @@ class Cliente:
             return self.executar_operacao(operacao_criar_produto, callback,
                                         nome=nome, descricao=descricao,
                                         preco=preco, categoria=categoria,
-                                        caminho_imagem=caminho_imagem)
+                                        loja_id=loja_id, caminho_imagem=caminho_imagem)
         else:
-            return operacao_criar_produto(nome, descricao, preco, categoria, caminho_imagem)
+            return operacao_criar_produto(nome, descricao, preco, categoria, loja_id, caminho_imagem)
 
 
     def editar_produto(self, produto_id, nome,descricao, preco, categoria, status, caminho_imagem=None, callback=None):
@@ -405,8 +408,9 @@ class Cliente:
         """Remove um produto do carrinho"""
         def operacao_remover_carrinho(id_produto):
             mensagem = {
-                'acao': 'remover_do_carrinho',
-                'id_produto': id_produto
+                'acao': 'remover_produto_carrinho',
+                'email': self.usuario_logado['email'],
+                'produto_id': id_produto
             }
             return self.enviar_mensagem(mensagem)
         
@@ -414,11 +418,11 @@ class Cliente:
             return self.executar_operacao(operacao_remover_carrinho, callback, id_produto=id_produto)
         else:
             return operacao_remover_carrinho(id_produto)
-    
+
     def visualizar_carrinho(self, callback=None):
         """Visualiza os itens no carrinho de compras"""
         def operacao_visualizar_carrinho():
-            mensagem = {'acao': 'visualizar_carrinho'}
+            mensagem = {'acao': 'visualizar_carrinho', 'email': self.usuario_logado['email']}
             return self.enviar_mensagem(mensagem)
         
         if callback:

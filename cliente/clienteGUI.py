@@ -625,10 +625,11 @@ class JanelaCriarLoja(QDialog):
 
 class JanelaCriarProduto(QDialog):
     """Janela para criar um novo produto ou editar existente"""
-    def __init__(self, cliente, produto_dados=None):
+    def __init__(self, cliente, produto_dados=None, loja_id=None):
         super().__init__()
         self.cliente = cliente
         self.produto_dados = produto_dados
+        self.loja_id = loja_id
         self.initUI()
         
     def initUI(self):
@@ -767,7 +768,8 @@ class JanelaCriarProduto(QDialog):
                 nome=nome,
                 descricao=descricao,
                 preco=preco,
-                categoria=categoria
+                categoria=categoria,
+                loja_id=self.loja_id
             )
         
         if resposta and resposta.get('status') == 'sucesso':
@@ -1175,7 +1177,9 @@ class JanelaCarrinho(QDialog):
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
-            produtos_ids = [p['id'] for p in self.carrinho]
+            # Garante que cada produto será comprado com quantidade 1
+            for produto in self.carrinho:
+                produto['quantidade'] = 1
             resposta = self.cliente.finalizar_compra()
             
             if resposta and resposta.get('status') == 'sucesso':
@@ -1308,13 +1312,13 @@ class JanelaMinhaLoja(QDialog):
     
     def adicionar_produto(self):
         """Abre diálogo para adicionar novo produto"""
-        dialog = JanelaCriarProduto(self.cliente)
+        dialog = JanelaCriarProduto(self.cliente, loja_id=self.loja_dados['id'])
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.carregar_produtos()
     
     def editar_produto(self, produto):
         """Abre diálogo para editar um produto existente"""
-        dialog = JanelaCriarProduto(self.cliente, produto)
+        dialog = JanelaCriarProduto(self.cliente, produto, self.loja_dados['id'])
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.carregar_produtos()
     

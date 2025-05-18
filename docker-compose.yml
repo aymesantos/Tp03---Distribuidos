@@ -1,23 +1,44 @@
 version: '3.8'
 
 services:
+  dados:
+    build:
+      context: ./Dados
+      dockerfile: dockerfile
+    container_name: dados
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./Dados:/app
+    restart: unless-stopped
+
   servidor:
     build:
-      context: .
-      dockerfile: servidor/Dockerfile  # Caminho do Dockerfile do servidor
+      context: ./servidor
+      dockerfile: dockerfile
+    container_name: servidor
     ports:
-      - "5000:5000"  # Expõe a porta 5000
-    networks:
-      - beco-diagonal-network
+      - "5000:5000"
+    depends_on:
+      - dados
+    volumes:
+      - ./servidor:/app
+    restart: unless-stopped
 
   cliente:
     build:
-      context: .
-      dockerfile: cliente/Dockerfile  # Caminho do Dockerfile do cliente
+      context: ./cliente
+      dockerfile: dockerfile
+    container_name: cliente
     depends_on:
-      - servidor  # Garante que o servidor esteja em execução antes do cliente
-    networks:
-      - beco-diagonal-network
+      - servidor
+    volumes:
+      - ./cliente:/app
+    environment:
+      - DISPLAY=${DISPLAY}
+    network_mode: host
+    restart: unless-stopped
+    # Para rodar GUI, precisa do X11 forwarding habilitado no host
 
 networks:
   beco-diagonal-network:

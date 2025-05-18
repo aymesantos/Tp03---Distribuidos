@@ -7,9 +7,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Ignorar banco de dados SQLite
-*.db
-
 # Ignorar arquivos temporários
 *.swp
 *.swo
@@ -20,14 +17,6 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
-
-# Ignorar imagens e arquivos de mídia temporários
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.bmp
-*.svg
 
 # Ignorar arquivos de log
 *.log 

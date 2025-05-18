@@ -11,5 +11,5 @@ COPY . /app/
 EXPOSE 5000
 
 # Comando para rodar o servidor
-CMD ["python", "servidor.py"]
+CMD ["python", "servidor_mock.py"]
 
