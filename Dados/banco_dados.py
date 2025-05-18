@@ -185,15 +185,37 @@ def listar_compras_usuario(usuario_id):
     compras = cur.fetchall()
     resultado = []
     for compra in compras:
-        cur.execute("SELECT produto_id, quantidade, preco_unitario FROM itens_compra WHERE compra_id=?", (compra[0],))
+        compra_id = compra[0]
+        data = compra[2]
+        cur.execute("SELECT produto_id, quantidade, preco_unitario FROM itens_compra WHERE compra_id=?", (compra_id,))
         itens = cur.fetchall()
-        resultado.append({
-            "id": compra[0],
-            "usuario_id": compra[1],
-            "data": compra[2],
-            "status": compra[3],
-            "itens": [dict(zip(["produto_id", "quantidade", "preco_unitario"], i)) for i in itens]
-        })
+        for i in itens:
+            produto_id, quantidade, preco_unitario = i
+            # Buscar nome do produto
+            cur.execute("SELECT nome, loja_id FROM produtos WHERE id=?", (produto_id,))
+            prod = cur.fetchone()
+            nome_produto = prod[0] if prod else "Produto desconhecido"
+            loja_id = prod[1] if prod else None
+            # Buscar nome do vendedor
+            if loja_id:
+                cur.execute("SELECT usuario_id FROM lojas WHERE id=?", (loja_id,))
+                loja = cur.fetchone()
+                usuario_vendedor_id = loja[0] if loja else None
+                if usuario_vendedor_id:
+                    cur.execute("SELECT nome FROM usuarios WHERE id=?", (usuario_vendedor_id,))
+                    vendedor = cur.fetchone()
+                    nome_vendedor = vendedor[0] if vendedor else "Desconhecido"
+                else:
+                    nome_vendedor = "Desconhecido"
+            else:
+                nome_vendedor = "Desconhecido"
+            resultado.append({
+                "produto": nome_produto,
+                "usuario": nome_vendedor,
+                "valor": preco_unitario * quantidade,
+                "quantidade": quantidade,
+                "data": data
+            })
     con.close()
     return {"status": "ok", "compras": resultado}
 
