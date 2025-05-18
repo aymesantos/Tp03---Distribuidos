@@ -22,10 +22,10 @@ open_terminal() {
 open_terminal "cd '$PROJ_DIR/Dados' && python3 servidor_dados.py" "Servidor Dados"
 
 # Servidor mock
-open_terminal "cd '$PROJ_DIR/servidor' && python3 servidor_mock.py" "Servidor Mock"
+open_terminal "cd '$PROJ_DIR/servidor' && python3 servidor.py" "Servidor Mock"
 
 # Cliente GUI
-open_terminal "cd '$PROJ_DIR/cliente' && source venv/bin/activate && python3 clienteGUI.py" "Cliente GUI"
+open_terminal "cd '$PROJ_DIR/cliente' && python3 clienteGUI.py" "Cliente GUI"
 
 # Mensagem final
 sleep 1
