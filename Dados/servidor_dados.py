@@ -10,8 +10,8 @@ def cadastrar_usuario_op(param):
     nome = param.get("nome")
     email = param.get("email")
     senha = param.get("senha")
-    tipo = param.get("tipo", "cliente")
-    casa = param.get("casa", "")
+    tipo = param.get("tipo")
+    casa = param.get("casa")
     return cadastrar_usuario_sqlite(nome, email, senha, tipo, casa)
 
 def cadastrar_usuario_sqlite(nome, email, senha, tipo, casa):
