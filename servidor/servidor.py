@@ -3,7 +3,7 @@ import json
 import os
 import threading
 
-# Função utilitária para comunicação com o servidor de dados
+# Função para comunicação com o servidor de dados
 DADOS_HOST = 'localhost'
 DADOS_PORTA = 5003
 
