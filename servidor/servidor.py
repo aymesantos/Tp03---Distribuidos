@@ -59,8 +59,8 @@ def processar_mensagem(mensagem):
             'usuario': {
                 'email': usuario['email'],
                 'nome': usuario['nome'],
-                'casa': usuario.get('casa', ''),
-                'tipo_bruxo': usuario.get('tipo', '')
+                'casa': usuario.get('casa'),
+                'tipo_bruxo': usuario.get('tipo')
             }
         }
 
