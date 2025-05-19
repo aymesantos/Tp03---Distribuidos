@@ -74,7 +74,8 @@ def processar_mensagem(mensagem):
             'nome': nome,
             'email': email,
             'senha': senha,
-            'tipo': tipo_bruxo
+            'tipo': tipo_bruxo,
+            'casa': casa
         })
         if not resposta or resposta.get('status') == 'erro':
             return {'status': 'erro', 'mensagem': resposta.get('mensagem', 'Erro ao cadastrar usuário') if resposta else 'Erro ao cadastrar usuário'}
