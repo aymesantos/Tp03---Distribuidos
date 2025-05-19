@@ -230,10 +230,9 @@ class Cliente:
                                         nome_loja=nome_loja, descricao=descricao)
         else:
             return operacao_editar_loja(nome_loja, descricao)
-
     
-    def obter_loja(self, callback=None):
-        def operacao_obter_loja():
+    def obter_loja(self):
+        try:
             mensagem = {'acao': 'obter_loja', 'email': self.usuario_logado['email']}
             resposta = self.enviar_mensagem(mensagem)
             print(f"Resposta da loja: {resposta}")
@@ -247,12 +246,9 @@ class Cliente:
                 }
             else:
                 return resposta
-
-        if callback:
-            return self.executar_operacao(operacao_obter_loja, callback)
-        else:
-            return operacao_obter_loja()
-
+        except Exception as e:
+            print(f"Erro ao obter loja: {e}")
+            return None
     
     # GERENCIAMENTO DE PRODUTOS
     
