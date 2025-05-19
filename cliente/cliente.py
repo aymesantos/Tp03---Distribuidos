@@ -279,18 +279,9 @@ class Cliente:
     
     # GERENCIAMENTO DE PRODUTOS
     
-    def criar_produto(self, nome, descricao, preco, categoria, loja_id, caminho_imagem=None, callback=None):
+    def criar_produto(self, nome, descricao, preco, categoria, loja_id, callback=None):
         """Cria um novo anúncio de produto (RF013)"""
-        def operacao_criar_produto(nome, descricao, preco, categoria, loja_id, caminho_imagem):
-            imagens_base64 = None
-
-            if caminho_imagem:
-                try:
-                    img_data = self.redimensionar_imagem(caminho_imagem)
-                    if img_data:
-                        imagens_base64 = base64.b64encode(img_data).decode('utf-8')
-                except Exception as e:
-                    print(f"Erro ao processar imagem do produto: {e}")
+        def operacao_criar_produto(nome, descricao, preco, categoria, loja_id):
 
             mensagem = {
                 'acao': 'criar_produto',
@@ -299,7 +290,6 @@ class Cliente:
                 'preco': preco,
                 'categoria': categoria,
                 'loja_id': loja_id,
-                'imagens_base64': imagens_base64
             }
             return self.enviar_mensagem(mensagem)
 
@@ -307,21 +297,14 @@ class Cliente:
             return self.executar_operacao(operacao_criar_produto, callback,
                                         nome=nome, descricao=descricao,
                                         preco=preco, categoria=categoria,
-                                        loja_id=loja_id, caminho_imagem=caminho_imagem)
+                                        loja_id=loja_id)
         else:
-            return operacao_criar_produto(nome, descricao, preco, categoria, loja_id, caminho_imagem)
+            return operacao_criar_produto(nome, descricao, preco, categoria, loja_id)
 
 
-    def editar_produto(self, produto_id, nome,descricao, preco, categoria, status, caminho_imagem=None, callback=None):
+    def editar_produto(self, produto_id, nome,descricao, preco, categoria, status, callback=None):
         """Edita um produto existente, com imagem opcional"""
-        def operacao_editar_produto(produto_id, nome,descricao, preco, categoria,status, caminho_imagem):
-            imagem_base64 = None
-            if caminho_imagem:
-                try:
-                    with open(caminho_imagem, 'rb') as img_file:
-                        imagem_base64 = base64.b64encode(img_file.read()).decode('utf-8')
-                except Exception as e:
-                    print(f"Erro ao abrir imagem: {e}")
+        def operacao_editar_produto(produto_id, nome,descricao, preco, categoria,status):
 
             mensagem = {
                 'acao': 'editar_produto',
@@ -331,7 +314,6 @@ class Cliente:
                 'preco': preco,
                 'categoria': categoria,
                 'status': status,
-                'imagem_base64': imagem_base64
             }
             return self.enviar_mensagem(mensagem)
 
@@ -342,10 +324,9 @@ class Cliente:
                                         descricao=descricao,
                                         preco=preco,
                                         categoria=categoria,
-                                        status=status,
-                                        caminho_imagem=caminho_imagem)
+                                        status=status,)
         else:
-            return operacao_editar_produto(produto_id, nome, descricao, preco, categoria, status, caminho_imagem)
+            return operacao_editar_produto(produto_id, nome, descricao, preco, categoria, status)
 
     
     def listar_produtos(self, filtros=None, callback=None):
