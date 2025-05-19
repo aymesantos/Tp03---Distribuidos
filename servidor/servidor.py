@@ -1,7 +1,7 @@
 import socket
 import json
 import os
-import base64
+import threading
 
 # Função utilitária para comunicação com o servidor de dados
 DADOS_HOST = 'localhost'
@@ -408,29 +408,34 @@ def processar_mensagem(mensagem):
 
     return {'erro': 'acao_invalida'}
 
+def atender_cliente(cliente_socket, cliente_endereco):
+    print(f"[NOVA CONEXÃO] {cliente_endereco} conectado.")
+    try:
+        while True:
+            dados = cliente_socket.recv(4096)
+            if not dados:
+                break
+            mensagem = json.loads(dados.decode('utf-8'))
+            print(f"[MENSAGEM RECEBIDA DE {cliente_endereco}] {mensagem}")
+            resposta = processar_mensagem(mensagem)
+            cliente_socket.sendall(json.dumps(resposta).encode('utf-8'))
+    except Exception as e:
+        print(f"[ERRO] Cliente {cliente_endereco}: {e}")
+    finally:
+        print(f"[DESCONECTADO] {cliente_endereco}")
+        cliente_socket.close()
+
 def iniciar_servidor(host='localhost', porta=5000):
     servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     servidor.bind((host, porta))
     servidor.listen(5)
-    print(f"Servidor mock em execução em {host}:{porta}")
+    print(f"[SERVIDOR ONLINE] Aguardando conexões em {host}:{porta}")
 
     while True:
         cliente_socket, cliente_endereco = servidor.accept()
-        print(f"Conexão recebida de {cliente_endereco}")
-        
-        try:
-            while True:
-                dados = cliente_socket.recv(4096)
-                if not dados:
-                    break
-                mensagem = json.loads(dados.decode('utf-8'))
-                print(f"Mensagem recebida: {mensagem}")
-                resposta = processar_mensagem(mensagem)
-                cliente_socket.sendall(json.dumps(resposta).encode('utf-8'))
-        except Exception as e:
-            print(f"Erro: {e}")
-        finally:
-            cliente_socket.close()
+        thread = threading.Thread(target=atender_cliente, args=(cliente_socket, cliente_endereco))
+        thread.start()
+        print(f"[ATIVO] Conexões ativas: {threading.active_count() - 1}")  # -1 para descontar a thread principal
 
 if __name__ == '__main__':
     iniciar_servidor()
