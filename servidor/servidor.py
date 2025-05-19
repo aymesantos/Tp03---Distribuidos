@@ -69,7 +69,7 @@ def processar_mensagem(mensagem):
         casa = mensagem.get('casa')
         email = mensagem.get('email')
         senha = mensagem.get('senha')
-        tipo_bruxo = mensagem.get('tipo_bruxo', 'cliente')
+        tipo_bruxo = mensagem.get('tipo')
         resposta = requisitar_dados('cadastrar_usuario', {
             'nome': nome,
             'email': email,
