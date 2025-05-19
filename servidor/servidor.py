@@ -97,47 +97,6 @@ def processar_mensagem(mensagem):
             return {'status': 'sucesso', 'produtos': produtos_filtrados}
         else:
             return {'status': 'sucesso', 'produtos': produtos}
-            
-        
-    elif acao == 'atualizar_perfil':
-        email = mensagem.get('email')
-        nome = mensagem.get('nome')
-        casa_hogwarts = mensagem.get('casa_hogwarts')
-        tipo_bruxo = mensagem.get('tipo_bruxo') 
-
-        print(f"Recebendo solicitação para atualizar perfil do usuário: {email}")
-
-        if not email or not nome or not casa_hogwarts or not tipo_bruxo:
-            print("Dados insuficientes para atualizar perfil.")
-            return {'status': 'erro', 'erro': 'dados_incompletos'}
-
-        try:
-            if email not in usuarios:
-                print(f"Usuário não encontrado: {email}")
-                return {'status': 'erro', 'erro': 'usuario_nao_encontrado'}
-            
-            usuarios[email]['nome'] = nome
-            usuarios[email]['casa'] = casa_hogwarts
-            usuarios[email]['tipo_bruxo'] = tipo_bruxo
-            
-            print(f"Dados do usuário atualizados: {email}")
-            print(f"Nome: {nome}")
-            print(f"Casa de Hogwarts: {casa_hogwarts}")
-            print(f"Tipo de Bruxo: {tipo_bruxo}")
-
-            return {
-                'status': 'sucesso',
-                'mensagem': 'Perfil atualizado com sucesso',
-                'dados': {
-                    'nome': nome,
-                    'casa': casa_hogwarts,
-                    'tipo_bruxo': tipo_bruxo
-                }
-            }
-
-        except Exception as e:
-            print(f"Erro ao atualizar perfil: {e}")
-            return {'status': 'erro', 'erro': 'falha_ao_atualizar_perfil'}
 
     elif acao == 'obter_perfil':
         email = mensagem.get('email')
