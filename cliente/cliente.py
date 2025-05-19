@@ -158,31 +158,6 @@ class Cliente:
         else:
             return operacao_obter_perfil()
 
-        
-    def atualizar_perfil(self, nome, casa_hogwarts, tipo_bruxo, email, callback=None):
-        """Atualiza os dados do perfil do usuário no servidor"""
-        def operacao_atualizar_perfil(nome, casa_hogwarts, tipo_bruxo, email):
-            try:
-                mensagem = {
-                    'acao': 'atualizar_perfil',
-                    'nome': nome,
-                    'casa_hogwarts': casa_hogwarts,
-                    'tipo_bruxo': tipo_bruxo,
-                    'email': email
-                }
-                return self.enviar_mensagem(mensagem)
-            except Exception as e:
-                print(f"Erro ao atualizar perfil: {str(e)}")
-                return {"status": "erro", "mensagem": str(e)}
-
-        if callback:
-            return self.executar_operacao(
-                operacao_atualizar_perfil, callback,
-                nome=nome, casa_hogwarts=casa_hogwarts, tipo_bruxo=tipo_bruxo
-            )
-        else:
-            return operacao_atualizar_perfil(nome, casa_hogwarts, tipo_bruxo)
-
 
     def cadastro(self, nome, casa, email, senha, tipo_bruxo, callback=None):
         """Cadastra um novo usuário"""
